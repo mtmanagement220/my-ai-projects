@@ -1,113 +1,219 @@
 import os
+import glob
 import requests
+import sys
 
-CODE_EXTENSIONS = (".html", ".css", ".js", ".json", ".py")
+ROOT = "projects"
 
-def read_project():
-    content = ""
-    for root, dirs, files in os.walk("."):
-        dirs[:] = [d for d in dirs if d != ".git" and d != ".github"]
-        for file in files:
-            if file.endswith(CODE_EXTENSIONS):
-                path = os.path.join(root, file)
+EXTENSIONS = (
+    ".html", ".css", ".js", ".jsx", ".ts", ".tsx",
+    ".json", ".py", ".php", ".java", ".kt"
+)
+
+def load_projects():
+    projects = {}
+
+    if not os.path.exists(ROOT):
+        return projects
+
+    for project in os.listdir(ROOT):
+        path = os.path.join(ROOT, project)
+
+        if not os.path.isdir(path):
+            continue
+
+        files = []
+
+        for file in glob.glob(path + "/**/*", recursive=True):
+            if os.path.isfile(file) and file.endswith(EXTENSIONS):
                 try:
-                    with open(path, "r", encoding="utf-8") as f:
-                        content += f"\n\n--- FILE: {path} ---\n{f.read()}"
-                except:
+                    with open(file, "r", encoding="utf-8") as f:
+                        files.append(
+                            f"\n--- FILE: {file} ---\n{f.read()}"
+                        )
+                except Exception:
                     pass
-    return content
 
-code = read_project()
+        if files:
+            projects[project] = "\n".join(files)
 
-if not code.strip():
-    print("STATUS: FAILED")
-    print("No project code found.")
-    exit(1)
+    return projects
 
-prompt = f"""
-You are an expert software code auditor.
 
-Check this project for:
+def ask_gemini(prompt):
+    key = os.getenv("GEMINI_API_KEY")
+
+    if not key:
+        return None
+
+    url = (
+        "https://generativelanguage.googleapis.com/"
+        "v1beta/models/gemini-2.5-flash:generateContent"
+    )
+
+    response = requests.post(
+        url,
+        params={"key": key},
+        json={
+            "contents": [
+                {
+                    "parts": [
+                        {"text": prompt}
+                    ]
+                }
+            ]
+        },
+        timeout=120
+    )
+
+    return response.text
+
+
+def ask_groq(prompt):
+    key = os.getenv("GROQ_API_KEY")
+
+    if not key:
+        return None
+
+    response = requests.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "model": "openai/gpt-oss-120b",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        },
+        timeout=120
+    )
+
+    return response.text
+
+
+def ask_openrouter(prompt):
+    key = os.getenv("OPENROUTER_API_KEY")
+
+    if not key:
+        return None
+
+    response = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "model": "openrouter/free",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        },
+        timeout=120
+    )
+
+    return response.text
+
+
+projects = load_projects()
+
+if not projects:
+    print("ERROR: No project found inside projects/")
+    sys.exit(1)
+
+failed = False
+
+for project_name, code in projects.items():
+
+    print("\n================================")
+    print("AUDITING:", project_name)
+    print("================================")
+
+    prompt = f"""
+You are a senior software auditor and security reviewer.
+
+Analyze the project carefully.
+
+Check:
+
 1. Syntax errors
-2. Runtime bugs
-3. Broken imports
-4. Broken links
-5. HTML/CSS/JS problems
-6. Security problems
-7. Mobile responsiveness
-8. Firebase/API mistakes
-9. Deployment problems
+2. Runtime errors
+3. Logic bugs
+4. Broken imports
+5. Broken links
+6. API problems
+7. Firebase problems
+8. Authentication/security problems
+9. Hardcoded secrets
+10. XSS
+11. Injection vulnerabilities
+12. Unsafe dependencies
+13. Mobile responsiveness
+14. Deployment problems
+15. Performance problems
+16. Obvious malicious code or suspicious behavior
 
-If problems exist:
+Do NOT invent problems.
+
+Return:
+
+STATUS: PASS
+
+or
+
 STATUS: FAILED
-List exact file and problem with a fix.
 
-If everything is ready:
-STATUS: PASSED
-Do not claim 100% unless you actually checked the code.
+For every real problem provide:
+FILE
+PROBLEM
+SEVERITY
+RECOMMENDED FIX
 
-PROJECT:
+Project:
+
 {code}
 """
 
-results = []
+    responses = []
 
-# GEMINI
-if os.getenv("GEMINI_API_KEY"):
-    try:
-        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent"
-        r = requests.post(
-            url,
-            params={"key": os.getenv("GEMINI_API_KEY")},
-            json={"contents":[{"parts":[{"text":prompt}]}]},
-            timeout=120
-        )
-        results.append("GEMINI:\n" + str(r.json()))
-    except Exception as e:
-        results.append("GEMINI ERROR: " + str(e))
+    for name, func in [
+        ("GEMINI", ask_gemini),
+        ("GROQ", ask_groq),
+        ("OPENROUTER", ask_openrouter)
+    ]:
+        try:
+            result = func(prompt)
 
-# GROQ
-if os.getenv("GROQ_API_KEY"):
-    try:
-        r = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={
-                "Authorization": "Bearer " + os.getenv("GROQ_API_KEY"),
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "openai/gpt-oss-120b",
-                "messages":[{"role":"user","content":prompt}]
-            },
-            timeout=120
-        )
-        results.append("GROQ:\n" + str(r.json()))
-    except Exception as e:
-        results.append("GROQ ERROR: " + str(e))
+            if result:
+                responses.append(
+                    f"\n===== {name} =====\n{result}"
+                )
 
-# OPENROUTER
-if os.getenv("OPENROUTER_API_KEY"):
-    try:
-        r = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": "Bearer " + os.getenv("OPENROUTER_API_KEY"),
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "openrouter/free",
-                "messages":[{"role":"user","content":prompt}]
-            },
-            timeout=120
-        )
-        results.append("OPENROUTER:\n" + str(r.json()))
-    except Exception as e:
-        results.append("OPENROUTER ERROR: " + str(e))
+        except Exception as e:
+            print(f"{name} ERROR:", e)
 
-print("\n".join(results))
+    if not responses:
+        print("ERROR: No AI provider available.")
+        failed = True
+        continue
 
-if not results:
-    print("STATUS: FAILED - No AI API configured")
-    exit(1)
+    report = "\n".join(responses)
 
-print("\nAI AUDIT COMPLETED")
+    print(report)
+
+    if "STATUS: FAILED" in report:
+        failed = True
+
+if failed:
+    print("\nAI AUDIT RESULT: FAILED")
+    sys.exit(1)
+
+print("\nAI AUDIT RESULT: PASSED")
