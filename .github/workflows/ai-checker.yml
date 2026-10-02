@@ -1,13 +1,16 @@
-name: AI Project Auditor
+name: AI Project Security Audit
 
 on:
   push:
     branches:
       - main
+
   workflow_dispatch:
 
 jobs:
+
   audit:
+
     runs-on: ubuntu-latest
 
     env:
@@ -17,7 +20,7 @@ jobs:
 
     steps:
 
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Python
@@ -25,8 +28,11 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Install
-        run: pip install requests
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
 
-      - name: AI Code Audit
-        run: python .github/scripts/review.py
+      - name: Run Multi AI Audit
+        run: |
+          python .github/scripts/review.py
