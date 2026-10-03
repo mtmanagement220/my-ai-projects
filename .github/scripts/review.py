@@ -1,23 +1,25 @@
 import os
-import sys
+import json
 import requests
 from pathlib import Path
 
-
 PROJECT_ROOT = Path("projects")
 
-EXTENSIONS = {
+SUPPORTED_EXTENSIONS = {
     ".html",
     ".css",
     ".js",
-    ".jsx",
-    ".ts",
-    ".tsx",
     ".json",
     ".py",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".vue",
     ".php",
     ".java",
     ".kt",
+    ".xml",
+    ".md"
 }
 
 
@@ -28,13 +30,21 @@ def collect_files():
         return files
 
     for path in PROJECT_ROOT.rglob("*"):
+
         if not path.is_file():
             continue
 
-        if ".git" in path.parts:
+        if any(part in {
+            ".git",
+            "node_modules",
+            "__pycache__",
+            "dist",
+            "build",
+            ".next"
+        } for part in path.parts):
             continue
 
-        if path.suffix.lower() not in EXTENSIONS:
+        if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
             continue
 
         try:
@@ -42,199 +52,213 @@ def collect_files():
                 encoding="utf-8",
                 errors="ignore"
             )
+        except Exception:
+            continue
 
-            files.append({
-                "path": str(path),
-                "content": content
-            })
-
-        except Exception as e:
-            print(f"Read error: {path} -> {e}")
+        files.append({
+            "path": str(path),
+            "content": content
+        })
 
     return files
 
 
+def ask_ai(provider, prompt):
+    try:
+
+        if provider == "gemini":
+
+            key = os.getenv("GEMINI_API_KEY")
+
+            if not key:
+                return "ERROR: GEMINI_API_KEY missing"
+
+            url = (
+                "https://generativelanguage.googleapis.com/"
+                "v1beta/models/gemini-2.5-flash:generateContent"
+                f"?key={key}"
+            )
+
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {
+                                "text": prompt
+                            }
+                        ]
+                    }
+                ],
+                "generationConfig": {
+                    "temperature": 0.1
+                }
+            }
+
+            r = requests.post(
+                url,
+                json=payload,
+                timeout=90
+            )
+
+            if r.status_code != 200:
+                return f"ERROR: Gemini HTTP {r.status_code}: {r.text[:1000]}"
+
+            data = r.json()
+
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+
+
+        if provider == "groq":
+
+            key = os.getenv("GROQ_API_KEY")
+
+            if not key:
+                return "ERROR: GROQ_API_KEY missing"
+
+            url = "https://api.groq.com/openai/v1/chat/completions"
+
+            headers = {
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json"
+            }
+
+            payload = {
+                "model": "openai/gpt-oss-120b",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "temperature": 0.1
+            }
+
+            r = requests.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=90
+            )
+
+            if r.status_code != 200:
+                return f"ERROR: Groq HTTP {r.status_code}: {r.text[:1000]}"
+
+            return r.json()["choices"][0]["message"]["content"]
+
+
+        if provider == "openrouter":
+
+            key = os.getenv("OPENROUTER_API_KEY")
+
+            if not key:
+                return "ERROR: OPENROUTER_API_KEY missing"
+
+            url = "https://openrouter.ai/api/v1/chat/completions"
+
+            headers = {
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json"
+            }
+
+            payload = {
+                "model": "openrouter/free",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "temperature": 0.1
+            }
+
+            r = requests.post(
+                url,
+                headers=headers,
+                json=payload,
+                timeout=90
+            )
+
+            if r.status_code != 200:
+                return f"ERROR: OpenRouter HTTP {r.status_code}: {r.text[:1000]}"
+
+            return r.json()["choices"][0]["message"]["content"]
+
+    except Exception as e:
+        return f"ERROR: {provider}: {type(e).__name__}: {e}"
+
+    return "ERROR: Unknown provider"
+
+
 def build_prompt(files):
-    project = ""
+    project = []
 
     for item in files:
-        project += f"""
-==============================
-FILE: {item["path"]}
-==============================
 
-{item["content"]}
+        content = item["content"]
 
+        # Avoid sending extremely large files completely.
+        if len(content) > 50000:
+            content = content[:50000] + "\n[FILE TRUNCATED]"
+
+        project.append(
+            f"""
+========== FILE ==========
+{item["path"]}
+
+{content}
 """
+        )
+
+    project_text = "\n".join(project)
 
     return f"""
-You are an expert software auditor.
+You are a senior software auditor.
 
-Audit this project carefully.
+Analyze this project as a real application.
 
-Check:
+IMPORTANT:
 
+Do NOT redesign the application.
+
+Do NOT remove working features.
+
+Do NOT invent unrelated changes.
+
+Find actual problems such as:
+
+- JavaScript syntax errors
 - HTML errors
 - CSS errors
-- JavaScript errors
-- runtime problems
-- broken imports
-- broken file paths
-- broken links
-- API problems
-- Firebase problems
+- broken file references
+- missing files
+- incorrect script loading
+- Firebase configuration problems
 - authentication problems
-- security vulnerabilities
-- exposed secrets
-- XSS
-- injection
-- dependency problems
-- mobile responsiveness
-- deployment problems
-- logic errors
-- obvious production-breaking issues
+- data/storage problems
+- runtime errors visible from code
+- obvious security problems
+- broken application logic
+- incompatible code
 
-Do NOT modify files.
+Return ONLY this format:
 
-At the end write exactly:
-
-STATUS: PASS
+STATUS: PASSED
 
 or
 
 STATUS: FAILED
+PROBLEMS:
+- path: exact file
+  problem: clear explanation
+  severity: HIGH/MEDIUM/LOW
+  suggested_fix: specific repair
 
-Then explain the important problems.
+Do not mark something as failed merely because you dislike the design.
 
 PROJECT:
 
-{project}
+{project_text}
 """
-
-
-def gemini(prompt):
-    key = os.getenv("GEMINI_API_KEY")
-
-    if not key:
-        return "API KEY MISSING"
-
-    url = (
-        "https://generativelanguage.googleapis.com/"
-        "v1beta/models/gemini-2.5-flash:generateContent"
-        f"?key={key}"
-    )
-
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "text": prompt
-                    }
-                ]
-            }
-        ]
-    }
-
-    r = requests.post(
-        url,
-        json=payload,
-        timeout=120
-    )
-
-    if r.status_code != 200:
-        return f"ERROR: Gemini {r.status_code}"
-
-    data = r.json()
-
-    try:
-        return data["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception:
-        return str(data)
-
-
-def groq(prompt):
-    key = os.getenv("GROQ_API_KEY")
-
-    if not key:
-        return "API KEY MISSING"
-
-    url = "https://api.groq.com/openai/v1/chat/completions"
-
-    headers = {
-        "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "model": "openai/gpt-oss-120b",
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "temperature": 0
-    }
-
-    r = requests.post(
-        url,
-        headers=headers,
-        json=payload,
-        timeout=120
-    )
-
-    if r.status_code != 200:
-        return f"ERROR: Groq {r.status_code}"
-
-    data = r.json()
-
-    try:
-        return data["choices"][0]["message"]["content"]
-    except Exception:
-        return str(data)
-
-
-def openrouter(prompt):
-    key = os.getenv("OPENROUTER_API_KEY")
-
-    if not key:
-        return "API KEY MISSING"
-
-    url = "https://openrouter.ai/api/v1/chat/completions"
-
-    headers = {
-        "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "model": "openrouter/free",
-        "messages": [
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "temperature": 0
-    }
-
-    r = requests.post(
-        url,
-        headers=headers,
-        json=payload,
-        timeout=120
-    )
-
-    if r.status_code != 200:
-        return f"ERROR: OpenRouter {r.status_code}"
-
-    data = r.json()
-
-    try:
-        return data["choices"][0]["message"]["content"]
-    except Exception:
-        return str(data)
 
 
 def main():
@@ -242,49 +266,66 @@ def main():
     files = collect_files()
 
     if not files:
-        print("No supported project files found.")
-        sys.exit(1)
+        print("STATUS: FAILED")
+        print("PROBLEMS:")
+        print("- No supported project files found.")
+        return 1
 
     print(f"Found {len(files)} project files.")
 
     prompt = build_prompt(files)
 
-    results = {
-        "Gemini": gemini(prompt),
-        "Groq": groq(prompt),
-        "OpenRouter": openrouter(prompt)
-    }
+    providers = [
+        "gemini",
+        "groq",
+        "openrouter"
+    ]
 
-    failed = False
+    failures = []
+    successful_checks = 0
 
-    for name, result in results.items():
+    for provider in providers:
 
-        print("\n==============================")
-        print(name)
-        print("==============================")
+        print("")
+        print("====================================")
+        print(f"AI AUDIT: {provider.upper()}")
+        print("====================================")
+
+        result = ask_ai(provider, prompt)
+
         print(result)
 
-        upper = result.upper()
+        if result.startswith("ERROR:"):
+            failures.append(provider)
+            continue
 
-        if "STATUS: FAILED" in upper:
-            failed = True
+        successful_checks += 1
 
-        if "API KEY MISSING" in upper:
-            failed = True
+        if "STATUS: FAILED" in result.upper():
+            failures.append(provider)
 
-        if upper.startswith("ERROR"):
-            failed = True
+    print("")
+    print("====================================")
+    print("AUDIT SUMMARY")
+    print("====================================")
 
-    print("\n==============================")
-    print("FINAL RESULT")
-    print("==============================")
+    print(f"Successful AI checks: {successful_checks}/3")
 
-    if failed:
+    if failures:
+        print("Failed/problem providers:", ", ".join(failures))
+
+    if successful_checks == 0:
         print("STATUS: FAILED")
-        sys.exit(1)
+        print("All AI providers failed.")
+        return 1
 
-    print("STATUS: PASS")
+    if failures:
+        print("STATUS: FAILED")
+        return 1
+
+    print("STATUS: PASSED")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
