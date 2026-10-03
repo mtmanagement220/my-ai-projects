@@ -1,6 +1,5 @@
 import os
 import sys
-import json
 import requests
 from pathlib import Path
 
@@ -22,11 +21,10 @@ EXTENSIONS = {
 }
 
 
-def collect_project():
+def collect_files():
     files = []
 
     if not PROJECT_ROOT.exists():
-        print("ERROR: projects directory not found.")
         return files
 
     for path in PROJECT_ROOT.rglob("*"):
@@ -51,16 +49,16 @@ def collect_project():
             })
 
         except Exception as e:
-            print(f"Could not read {path}: {e}")
+            print(f"Read error: {path} -> {e}")
 
     return files
 
 
 def build_prompt(files):
-    project_text = ""
+    project = ""
 
     for item in files:
-        project_text += f"""
+        project += f"""
 ==============================
 FILE: {item["path"]}
 ==============================
@@ -70,40 +68,35 @@ FILE: {item["path"]}
 """
 
     return f"""
-You are the main AI software security and code auditor.
+You are an expert software auditor.
 
-Analyze the uploaded project.
+Audit this project carefully.
 
 Check:
 
-1. Syntax errors
-2. Runtime errors
-3. JavaScript errors
-4. HTML errors
-5. CSS problems
-6. Broken imports
-7. Broken links
-8. API problems
-9. Firebase problems
-10. Authentication problems
-11. Security vulnerabilities
-12. XSS
-13. Injection
-14. Exposed API keys
-15. Hardcoded passwords
-16. Broken dependencies
-17. Mobile responsiveness
-18. Deployment problems
-19. Logic errors
-20. Performance problems
-21. Missing files
-22. Incorrect file references
-23. Console errors
-24. Obvious production-breaking problems
+- HTML errors
+- CSS errors
+- JavaScript errors
+- runtime problems
+- broken imports
+- broken file paths
+- broken links
+- API problems
+- Firebase problems
+- authentication problems
+- security vulnerabilities
+- exposed secrets
+- XSS
+- injection
+- dependency problems
+- mobile responsiveness
+- deployment problems
+- logic errors
+- obvious production-breaking issues
 
-Do NOT modify anything.
+Do NOT modify files.
 
-At the end MUST return exactly one of:
+At the end write exactly:
 
 STATUS: PASS
 
@@ -111,27 +104,27 @@ or
 
 STATUS: FAILED
 
-Then explain the important findings.
+Then explain the important problems.
 
 PROJECT:
 
-{project_text}
+{project}
 """
 
 
-def call_gemini(prompt):
+def gemini(prompt):
     key = os.getenv("GEMINI_API_KEY")
 
     if not key:
-        return "Gemini API key missing."
+        return "API KEY MISSING"
 
     url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        "gemini-2.5-flash:generateContent"
+        "https://generativelanguage.googleapis.com/"
+        "v1beta/models/gemini-2.5-flash:generateContent"
         f"?key={key}"
     )
 
-    data = {
+    payload = {
         "contents": [
             {
                 "parts": [
@@ -143,28 +136,28 @@ def call_gemini(prompt):
         ]
     }
 
-    response = requests.post(
+    r = requests.post(
         url,
-        json=data,
+        json=payload,
         timeout=120
     )
 
-    if response.status_code != 200:
-        return f"Gemini error {response.status_code}: {response.text}"
+    if r.status_code != 200:
+        return f"ERROR: Gemini {r.status_code}"
 
-    result = response.json()
+    data = r.json()
 
     try:
-        return result["candidates"][0]["content"]["parts"][0]["text"]
+        return data["candidates"][0]["content"]["parts"][0]["text"]
     except Exception:
-        return json.dumps(result)
+        return str(data)
 
 
-def call_groq(prompt):
+def groq(prompt):
     key = os.getenv("GROQ_API_KEY")
 
     if not key:
-        return "Groq API key missing."
+        return "API KEY MISSING"
 
     url = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -173,7 +166,7 @@ def call_groq(prompt):
         "Content-Type": "application/json"
     }
 
-    data = {
+    payload = {
         "model": "openai/gpt-oss-120b",
         "messages": [
             {
@@ -184,29 +177,29 @@ def call_groq(prompt):
         "temperature": 0
     }
 
-    response = requests.post(
+    r = requests.post(
         url,
         headers=headers,
-        json=data,
+        json=payload,
         timeout=120
     )
 
-    if response.status_code != 200:
-        return f"Groq error {response.status_code}: {response.text}"
+    if r.status_code != 200:
+        return f"ERROR: Groq {r.status_code}"
 
-    result = response.json()
+    data = r.json()
 
     try:
-        return result["choices"][0]["message"]["content"]
+        return data["choices"][0]["message"]["content"]
     except Exception:
-        return json.dumps(result)
+        return str(data)
 
 
-def call_openrouter(prompt):
+def openrouter(prompt):
     key = os.getenv("OPENROUTER_API_KEY")
 
     if not key:
-        return "OpenRouter API key missing."
+        return "API KEY MISSING"
 
     url = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -215,7 +208,7 @@ def call_openrouter(prompt):
         "Content-Type": "application/json"
     }
 
-    data = {
+    payload = {
         "model": "openrouter/free",
         "messages": [
             {
@@ -226,27 +219,27 @@ def call_openrouter(prompt):
         "temperature": 0
     }
 
-    response = requests.post(
+    r = requests.post(
         url,
         headers=headers,
-        json=data,
+        json=payload,
         timeout=120
     )
 
-    if response.status_code != 200:
-        return f"OpenRouter error {response.status_code}: {response.text}"
+    if r.status_code != 200:
+        return f"ERROR: OpenRouter {r.status_code}"
 
-    result = response.json()
+    data = r.json()
 
     try:
-        return result["choices"][0]["message"]["content"]
+        return data["choices"][0]["message"]["content"]
     except Exception:
-        return json.dumps(result)
+        return str(data)
 
 
 def main():
 
-    files = collect_project()
+    files = collect_files()
 
     if not files:
         print("No supported project files found.")
@@ -256,54 +249,34 @@ def main():
 
     prompt = build_prompt(files)
 
-    results = {}
+    results = {
+        "Gemini": gemini(prompt),
+        "Groq": groq(prompt),
+        "OpenRouter": openrouter(prompt)
+    }
+
     failed = False
 
-    print("\n==============================")
-    print("GEMINI AUDIT")
-    print("==============================")
+    for name, result in results.items():
 
-    try:
-        results["Gemini"] = call_gemini(prompt)
-        print(results["Gemini"])
-    except Exception as e:
-        results["Gemini"] = f"ERROR: {e}"
+        print("\n==============================")
+        print(name)
+        print("==============================")
+        print(result)
 
-    print("\n==============================")
-    print("GROQ AUDIT")
-    print("==============================")
+        upper = result.upper()
 
-    try:
-        results["Groq"] = call_groq(prompt)
-        print(results["Groq"])
-    except Exception as e:
-        results["Groq"] = f"ERROR: {e}"
-
-    print("\n==============================")
-    print("OPENROUTER AUDIT")
-    print("==============================")
-
-    try:
-        results["OpenRouter"] = call_openrouter(prompt)
-        print(results["OpenRouter"])
-    except Exception as e:
-        results["OpenRouter"] = f"ERROR: {e}"
-
-    for provider, result in results.items():
-
-        text = result.upper()
-
-        if "STATUS: FAILED" in text:
+        if "STATUS: FAILED" in upper:
             failed = True
 
-        if text.startswith("ERROR"):
+        if "API KEY MISSING" in upper:
             failed = True
 
-        if "API KEY MISSING" in text:
+        if upper.startswith("ERROR"):
             failed = True
 
     print("\n==============================")
-    print("FINAL AUDIT RESULT")
+    print("FINAL RESULT")
     print("==============================")
 
     if failed:
