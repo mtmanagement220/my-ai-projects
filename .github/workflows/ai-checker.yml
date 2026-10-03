@@ -1,16 +1,21 @@
-name: AI Project Security Audit
+name: AI Project Auto Fix & Audit
 
 on:
   push:
     branches:
       - main
+    paths:
+      - "projects/**"
+      - ".github/scripts/**"
+      - ".github/workflows/**"
 
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-
-  audit:
-
+  ai-audit-fix:
     runs-on: ubuntu-latest
 
     env:
@@ -20,19 +25,159 @@ jobs:
 
     steps:
 
+      # 1. Download repository
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      # 2. Python
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          python-version: "3.12"
 
-      - name: Install Python Dependencies
+      # 3. Install dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests
 
-      - name: Run Multi AI Audit
+      # 4. First AI audit
+      - name: AI Security & Code Audit
+        id: audit
         run: |
           python .github/scripts/review.py
+
+      # 5. Automatic fixing
+      - name: AI Auto Fix
+        if: failure()
+        run: |
+          python .github/scripts/auto_fix.py
+
+      # 6. Check what changed
+      - name: Show Changes
+        run: |
+          echo "===== GIT STATUS ====="
+          git status
+          echo "===== CHANGES ====="
+          git diff --stat
+
+      # 7. Commit AI fixes
+      - name: Commit AI Fixes
+        if: failure()
+        run: |
+          git config user.name "AI Project Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add projects/
+
+          if git diff --cached --quiet; then
+            echo "No AI fixes were created."
+          else
+            git commit -m "AI auto-fix project [skip ci]"
+            git push
+          fi
+
+      # 8. Final test
+      - name: Final AI Audit
+        run: |
+          python .github/scripts/review.py
+
+      # 9. Gmail notification - SUCCESS
+      - name: Send Gmail Success Notification
+        if: success()
+        env:
+          GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GMAIL_TO: ${{ secrets.GMAIL_TO }}
+        run: |
+          python - <<'PY'
+          import os
+          import smtplib
+          from email.message import EmailMessage
+
+          username = os.environ["GMAIL_USERNAME"]
+          password = os.environ["GMAIL_APP_PASSWORD"]
+          recipient = os.environ["GMAIL_TO"]
+
+          msg = EmailMessage()
+          msg["Subject"] = "✅ AI Project - Audit Successful"
+          msg["From"] = username
+          msg["To"] = recipient
+
+          msg.set_content("""
+          AI PROJECT AUTOMATION
+
+          ✅ Project audit completed successfully.
+
+          ✅ AI security/code audit passed.
+          ✅ Automatic fixing completed if required.
+          ✅ Final audit passed.
+
+          Your project is ready for the next deployment stage.
+
+          Repository:
+          https://github.com/mtmanagement220/my-ai-projects
+
+          GitHub Actions:
+          https://github.com/mtmanagement220/my-ai-projects/actions
+
+          -- AI Project Automation
+          """)
+
+          with smtplib.SMTP("smtp.gmail.com", 587) as server:
+              server.starttls()
+              server.login(username, password)
+              server.send_message(msg)
+
+          print("Success email sent.")
+          PY
+
+      # 10. Gmail notification - FAILURE
+      - name: Send Gmail Failure Notification
+        if: failure()
+        env:
+          GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GMAIL_TO: ${{ secrets.GMAIL_TO }}
+        run: |
+          python - <<'PY'
+          import os
+          import smtplib
+          from email.message import EmailMessage
+
+          username = os.environ["GMAIL_USERNAME"]
+          password = os.environ["GMAIL_APP_PASSWORD"]
+          recipient = os.environ["GMAIL_TO"]
+
+          msg = EmailMessage()
+          msg["Subject"] = "❌ AI Project - Audit Failed"
+          msg["From"] = username
+          msg["To"] = recipient
+
+          msg.set_content("""
+          AI PROJECT AUTOMATION
+
+          ❌ The project could not pass the final AI audit.
+
+          The automation attempted to inspect/fix the project,
+          but the final verification still failed.
+
+          Please open GitHub Actions to see the detailed logs:
+
+          https://github.com/mtmanagement220/my-ai-projects/actions
+
+          Repository:
+          https://github.com/mtmanagement220/my-ai-projects
+
+          -- AI Project Automation
+          """)
+
+          with smtplib.SMTP("smtp.gmail.com", 587) as server:
+              server.starttls()
+              server.login(username, password)
+              server.send_message(msg)
+
+          print("Failure email sent.")
+          PY
