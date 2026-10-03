@@ -6,32 +6,25 @@ from pathlib import Path
 
 PROJECT_ROOT = Path("projects")
 
-EXTENSIONS = {
-    ".html",
-    ".css",
-    ".js",
-    ".jsx",
-    ".ts",
-    ".tsx",
-    ".json",
-    ".py",
-    ".php",
-}
 
-
-def collect_files():
-
+def collect_project_files():
     files = []
 
-    for path in PROJECT_ROOT.rglob("*"):
+    if not PROJECT_ROOT.exists():
+        return files
 
+    for path in PROJECT_ROOT.rglob("*"):
         if not path.is_file():
             continue
 
-        if ".git" in path.parts:
-            continue
-
-        if path.suffix.lower() not in EXTENSIONS:
+        if any(part in {
+            ".git",
+            "node_modules",
+            "__pycache__",
+            ".next",
+            "dist",
+            "build"
+        } for part in path.parts):
             continue
 
         try:
@@ -39,81 +32,84 @@ def collect_files():
                 encoding="utf-8",
                 errors="ignore"
             )
+        except Exception:
+            continue
 
-            files.append({
-                "path": str(path),
-                "content": content
-            })
-
-        except Exception as e:
-            print(f"Read error: {path} -> {e}")
+        files.append({
+            "path": str(path),
+            "content": content
+        })
 
     return files
 
 
-def ask_gemini(files):
+def call_gemini(project_files):
+    api_key = os.getenv("GEMINI_API_KEY")
 
-    key = os.getenv("GEMINI_API_KEY")
-
-    if not key:
-        print("GEMINI_API_KEY missing.")
+    if not api_key:
+        print("ERROR: GEMINI_API_KEY missing")
         return None
 
-    project = ""
+    project_text = "\n\n".join(
+        f"""
+========== FILE: {item['path']} ==========
 
-    for item in files:
-        project += f"""
-FILE: {item["path"]}
-
-{item["content"]}
-
-========================
+{item['content']}
 """
+        for item in project_files
+    )
 
     prompt = f"""
-You are a professional software repair AI.
+You are an expert autonomous software repair engineer.
 
-Find and repair real errors in this project.
+You are repairing a real project inside the "projects/" directory.
 
-IMPORTANT RULES:
+Your job:
 
-1. Modify ONLY files inside projects/.
-2. Never modify .github/.
-3. Do not redesign the project.
-4. Do not remove working features.
-5. Do not add malicious code.
-6. Do not add tracking.
-7. Do not expose secrets.
-8. Preserve the existing UI.
-9. Make the smallest safe fixes.
-10. Return COMPLETE file contents for files you change.
+1. Inspect ALL provided project files.
+2. Find programming errors.
+3. Find broken HTML/CSS/JavaScript.
+4. Find missing references.
+5. Find obvious runtime problems.
+6. Find syntax errors.
+7. Find security problems that can be safely corrected.
+8. Preserve the existing design and functionality.
+9. Do NOT redesign the project unnecessarily.
+10. Do NOT delete working features.
+11. Make the smallest safe changes required.
+12. Only modify files inside projects/.
+13. Never create secrets or API keys.
+14. Never modify GitHub workflow files.
+15. Never modify files outside projects/.
 
-Return ONLY valid JSON:
+Return ONLY valid JSON.
+
+Required format:
 
 {{
   "changes": [
     {{
       "path": "projects/project1/index.html",
-      "content": "COMPLETE FILE CONTENT"
+      "content": "FULL corrected file content"
     }}
   ]
 }}
 
-If there is no safe fix:
+If no repair is needed:
 
 {{
   "changes": []
 }}
 
-PROJECT:
+PROJECT FILES:
 
-{project}
+{project_text}
 """
 
     url = (
         "https://generativelanguage.googleapis.com/"
         "v1beta/models/gemini-2.5-flash:generateContent"
-        f"?key={key}"
+        f"?key={api_key}"
     )
 
     payload = {
@@ -125,61 +121,75 @@ PROJECT:
                     }
                 ]
             }
-        ]
+        ],
+        "generationConfig": {
+            "temperature": 0.1
+        }
     }
 
-    r = requests.post(
+    response = requests.post(
         url,
         json=payload,
         timeout=180
     )
 
-    if r.status_code != 200:
-        print(r.text)
+    if response.status_code != 200:
+        print("Gemini API error:", response.status_code)
+        print(response.text[:3000])
         return None
 
-    data = r.json()
+    data = response.json()
 
     try:
         return data["candidates"][0]["content"]["parts"][0]["text"]
     except Exception:
+        print("Could not read Gemini response.")
         return None
 
 
-def parse_json(text):
-
+def clean_json(text):
     if not text:
         return None
 
     text = text.strip()
 
     if text.startswith("```"):
-        text = text.replace("```json", "")
-        text = text.replace("```", "")
-        text = text.strip()
+        lines = text.splitlines()
+
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+
+        text = "\n".join(lines).strip()
+
+    return text
+
+
+def apply_changes(result):
+    result = clean_json(result)
+
+    if not result:
+        return False
 
     try:
-        return json.loads(text)
+        data = json.loads(result)
     except Exception as e:
-        print("JSON parsing failed:", e)
-        return None
-
-
-def apply_changes(data):
-
-    if not data:
+        print("Invalid JSON returned by AI:")
+        print(e)
+        print(result[:5000])
         return False
 
     changes = data.get("changes", [])
 
     if not changes:
-        print("No safe automatic fix.")
-        return False
+        print("AI found no safe changes.")
+        return True
 
     changed = False
 
     for item in changes:
-
         path = item.get("path")
         content = item.get("content")
 
@@ -188,13 +198,13 @@ def apply_changes(data):
 
         target = Path(path)
 
-        # Security check:
+        # Security boundary
         try:
             target.resolve().relative_to(
                 PROJECT_ROOT.resolve()
             )
         except ValueError:
-            print("BLOCKED:", path)
+            print("BLOCKED unsafe path:", path)
             continue
 
         target.parent.mkdir(
@@ -207,36 +217,30 @@ def apply_changes(data):
             encoding="utf-8"
         )
 
-        print("FIXED:", path)
-
+        print("✅ Repaired:", path)
         changed = True
 
     return changed
 
 
 def main():
-
-    print("================================")
-    print("AI AUTO-FIX ENGINE")
-    print("================================")
-
-    files = collect_files()
+    files = collect_project_files()
 
     if not files:
         print("No project files found.")
-        return
+        return 1
 
-    print(f"Project files: {len(files)}")
+    print(f"Found {len(files)} project files.")
 
-    ai_response = ask_gemini(files)
+    result = call_gemini(files)
 
-    data = parse_json(ai_response)
+    if result is None:
+        return 1
 
-    if apply_changes(data):
-        print("AI fixes applied successfully.")
-    else:
-        print("No changes applied.")
+    success = apply_changes(result)
+
+    return 0 if success else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
