@@ -46,64 +46,60 @@ def collect_files():
             })
 
         except Exception as e:
-            print(f"Read error: {path} - {e}")
+            print(f"Read error: {path} -> {e}")
 
     return files
 
 
-def ask_ai(files):
+def ask_gemini(files):
 
     key = os.getenv("GEMINI_API_KEY")
 
     if not key:
-        print("GEMINI_API_KEY is missing.")
+        print("GEMINI_API_KEY missing.")
         return None
 
     project = ""
 
-    for file in files:
+    for item in files:
         project += f"""
-FILE: {file["path"]}
+FILE: {item["path"]}
 
-{file["content"]}
+{item["content"]}
 
 ========================
 """
 
     prompt = f"""
-You are an expert software repair AI.
+You are a professional software repair AI.
 
-Repair ONLY real problems in this project.
+Find and repair real errors in this project.
 
-Rules:
+IMPORTANT RULES:
 
-1. Do not redesign the project.
-2. Do not remove working features.
-3. Do not change the visual design unnecessarily.
-4. Do not modify .github files.
-5. Only modify files inside projects/.
-6. Do not create malicious code.
-7. Do not add tracking.
-8. Do not expose API keys.
-9. Preserve existing functionality.
-10. Fix syntax/runtime/logic/import/link/dependency problems.
-11. Keep mobile responsiveness.
-12. Make the smallest safe changes.
+1. Modify ONLY files inside projects/.
+2. Never modify .github/.
+3. Do not redesign the project.
+4. Do not remove working features.
+5. Do not add malicious code.
+6. Do not add tracking.
+7. Do not expose secrets.
+8. Preserve the existing UI.
+9. Make the smallest safe fixes.
+10. Return COMPLETE file contents for files you change.
 
-Return ONLY valid JSON.
-
-Format:
+Return ONLY valid JSON:
 
 {{
   "changes": [
     {{
       "path": "projects/project1/index.html",
-      "content": "FULL FILE CONTENT HERE"
+      "content": "COMPLETE FILE CONTENT"
     }}
   ]
 }}
 
-If no safe fix is possible:
+If there is no safe fix:
 
 {{
   "changes": []
@@ -115,8 +111,8 @@ PROJECT:
 """
 
     url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        "gemini-2.5-flash:generateContent"
+        "https://generativelanguage.googleapis.com/"
+        "v1beta/models/gemini-2.5-flash:generateContent"
         f"?key={key}"
     )
 
@@ -132,17 +128,17 @@ PROJECT:
         ]
     }
 
-    response = requests.post(
+    r = requests.post(
         url,
         json=payload,
         timeout=180
     )
 
-    if response.status_code != 200:
-        print(response.text)
+    if r.status_code != 200:
+        print(r.text)
         return None
 
-    data = response.json()
+    data = r.json()
 
     try:
         return data["candidates"][0]["content"]["parts"][0]["text"]
@@ -150,7 +146,7 @@ PROJECT:
         return None
 
 
-def clean_json(text):
+def parse_json(text):
 
     if not text:
         return None
@@ -165,8 +161,7 @@ def clean_json(text):
     try:
         return json.loads(text)
     except Exception as e:
-        print("Could not parse AI JSON:", e)
-        print(text)
+        print("JSON parsing failed:", e)
         return None
 
 
@@ -178,7 +173,7 @@ def apply_changes(data):
     changes = data.get("changes", [])
 
     if not changes:
-        print("AI did not find a safe automatic fix.")
+        print("No safe automatic fix.")
         return False
 
     changed = False
@@ -193,13 +188,13 @@ def apply_changes(data):
 
         target = Path(path)
 
-        # SECURITY: only projects/
+        # Security check:
         try:
             target.resolve().relative_to(
                 PROJECT_ROOT.resolve()
             )
         except ValueError:
-            print("Blocked unsafe path:", path)
+            print("BLOCKED:", path)
             continue
 
         target.parent.mkdir(
@@ -222,7 +217,7 @@ def apply_changes(data):
 def main():
 
     print("================================")
-    print("AI AUTO FIX ENGINE")
+    print("AI AUTO-FIX ENGINE")
     print("================================")
 
     files = collect_files()
@@ -231,16 +226,16 @@ def main():
         print("No project files found.")
         return
 
-    print(f"Files available for repair: {len(files)}")
+    print(f"Project files: {len(files)}")
 
-    result = ask_ai(files)
+    ai_response = ask_gemini(files)
 
-    data = clean_json(result)
+    data = parse_json(ai_response)
 
     if apply_changes(data):
-        print("Automatic fixes applied.")
+        print("AI fixes applied successfully.")
     else:
-        print("No automatic changes were applied.")
+        print("No changes applied.")
 
 
 if __name__ == "__main__":
