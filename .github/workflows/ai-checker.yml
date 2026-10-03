@@ -24,46 +24,35 @@ jobs:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
 
     steps:
-
-      # 1. Download repository
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 2. Python
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      # 3. Install dependencies
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests
 
-      # 4. First AI audit
-      - name: AI Security & Code Audit
-        id: audit
+      - name: AI Project Audit
         run: |
           python .github/scripts/review.py
 
-      # 5. Automatic fixing
       - name: AI Auto Fix
         if: failure()
         run: |
           python .github/scripts/auto_fix.py
 
-      # 6. Check what changed
       - name: Show Changes
         run: |
-          echo "===== GIT STATUS ====="
           git status
-          echo "===== CHANGES ====="
           git diff --stat
 
-      # 7. Commit AI fixes
       - name: Commit AI Fixes
         if: failure()
         run: |
@@ -79,13 +68,11 @@ jobs:
             git push
           fi
 
-      # 8. Final test
       - name: Final AI Audit
         run: |
           python .github/scripts/review.py
 
-      # 9. Gmail notification - SUCCESS
-      - name: Send Gmail Success Notification
+      - name: Send Gmail Success
         if: success()
         env:
           GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
@@ -110,18 +97,12 @@ jobs:
           AI PROJECT AUTOMATION
 
           ✅ Project audit completed successfully.
-
-          ✅ AI security/code audit passed.
-          ✅ Automatic fixing completed if required.
+          ✅ AI checks completed.
+          ✅ Automatic repair completed if required.
           ✅ Final audit passed.
-
-          Your project is ready for the next deployment stage.
 
           Repository:
           https://github.com/mtmanagement220/my-ai-projects
-
-          GitHub Actions:
-          https://github.com/mtmanagement220/my-ai-projects/actions
 
           -- AI Project Automation
           """)
@@ -134,8 +115,7 @@ jobs:
           print("Success email sent.")
           PY
 
-      # 10. Gmail notification - FAILURE
-      - name: Send Gmail Failure Notification
+      - name: Send Gmail Failure
         if: failure()
         env:
           GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
@@ -159,17 +139,14 @@ jobs:
           msg.set_content("""
           AI PROJECT AUTOMATION
 
-          ❌ The project could not pass the final AI audit.
+          ❌ Final AI audit failed.
 
-          The automation attempted to inspect/fix the project,
-          but the final verification still failed.
+          The system attempted to inspect and repair the project,
+          but the final verification did not pass.
 
-          Please open GitHub Actions to see the detailed logs:
+          Check GitHub Actions for details:
 
           https://github.com/mtmanagement220/my-ai-projects/actions
-
-          Repository:
-          https://github.com/mtmanagement220/my-ai-projects
 
           -- AI Project Automation
           """)
