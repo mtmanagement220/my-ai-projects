@@ -1,4 +1,4 @@
-name: AI Project Auto Fix & Audit
+name: AI Project Auto Repair System
 
 on:
   push:
@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 jobs:
-  ai-audit-fix:
+  ai-auto-repair:
     runs-on: ubuntu-latest
 
     env:
@@ -24,7 +24,8 @@ jobs:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
 
     steps:
-      - name: Checkout Repository
+
+      - name: Checkout Project
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -39,22 +40,78 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
-      - name: AI Project Audit
+      # -----------------------------------------
+      # AI AUDIT → AUTO FIX → RE-AUDIT
+      # Maximum 3 repair attempts
+      # -----------------------------------------
+
+      - name: AI Audit and Auto Repair
+        id: repair
+        shell: bash
         run: |
+          set +e
+
+          FINAL_STATUS=1
+
+          for ATTEMPT in 1 2 3
+          do
+            echo ""
+            echo "========================================="
+            echo "🤖 AI AUDIT ATTEMPT $ATTEMPT / 3"
+            echo "========================================="
+
+            python .github/scripts/review.py
+            STATUS=$?
+
+            if [ $STATUS -eq 0 ]; then
+              echo ""
+              echo "========================================="
+              echo "✅ PROJECT PASSED AI AUDIT"
+              echo "========================================="
+              FINAL_STATUS=0
+              break
+            fi
+
+            echo ""
+            echo "❌ Problems detected."
+            echo "🛠️ Starting AI Auto Repair..."
+
+            python .github/scripts/auto_fix.py
+            FIX_STATUS=$?
+
+            if [ $FIX_STATUS -ne 0 ]; then
+              echo "⚠️ AI repair process returned an error."
+            fi
+
+            echo ""
+            echo "🔄 Repair attempt $ATTEMPT completed."
+            echo "🔍 Project will be audited again..."
+          done
+
+          echo ""
+          echo "========================================="
+          echo "FINAL AUDIT"
+          echo "========================================="
+
           python .github/scripts/review.py
+          FINAL_STATUS=$?
 
-      - name: AI Auto Fix
-        if: failure()
-        run: |
-          python .github/scripts/auto_fix.py
+          if [ $FINAL_STATUS -eq 0 ]; then
+            echo "final_status=success" >> "$GITHUB_OUTPUT"
+            echo "🎉 FINAL AUDIT PASSED"
+          else
+            echo "final_status=failed" >> "$GITHUB_OUTPUT"
+            echo "❌ FINAL AUDIT FAILED"
+          fi
 
-      - name: Show Changes
-        run: |
-          git status
-          git diff --stat
+          exit $FINAL_STATUS
 
-      - name: Commit AI Fixes
-        if: failure()
+      # -----------------------------------------
+      # SAVE AI REPAIRS
+      # -----------------------------------------
+
+      - name: Commit AI Repairs
+        if: ${{ success() }}
         run: |
           git config user.name "AI Project Bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -62,18 +119,19 @@ jobs:
           git add projects/
 
           if git diff --cached --quiet; then
-            echo "No AI fixes were created."
+            echo "No file changes detected."
           else
-            git commit -m "AI auto-fix project [skip ci]"
+            git commit -m "AI auto-repair project [skip ci]"
             git push
+            echo "✅ AI repaired files committed."
           fi
 
-      - name: Final AI Audit
-        run: |
-          python .github/scripts/review.py
+      # -----------------------------------------
+      # SUCCESS EMAIL
+      # -----------------------------------------
 
       - name: Send Gmail Success
-        if: success()
+        if: ${{ success() }}
         env:
           GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
@@ -89,17 +147,17 @@ jobs:
           recipient = os.environ["GMAIL_TO"]
 
           msg = EmailMessage()
-          msg["Subject"] = "✅ AI Project - Audit Successful"
+          msg["Subject"] = "✅ AI Project Repaired & Verified"
           msg["From"] = username
           msg["To"] = recipient
 
           msg.set_content("""
           AI PROJECT AUTOMATION
 
-          ✅ Project audit completed successfully.
-          ✅ AI checks completed.
-          ✅ Automatic repair completed if required.
-          ✅ Final audit passed.
+          ✅ Project checked.
+          🛠️ Automatic AI repair completed where necessary.
+          🔄 Project was re-tested.
+          ✅ Final AI audit passed.
 
           Repository:
           https://github.com/mtmanagement220/my-ai-projects
@@ -115,8 +173,12 @@ jobs:
           print("Success email sent.")
           PY
 
+      # -----------------------------------------
+      # FAILURE EMAIL
+      # -----------------------------------------
+
       - name: Send Gmail Failure
-        if: failure()
+        if: ${{ failure() }}
         env:
           GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
@@ -132,20 +194,20 @@ jobs:
           recipient = os.environ["GMAIL_TO"]
 
           msg = EmailMessage()
-          msg["Subject"] = "❌ AI Project - Audit Failed"
+          msg["Subject"] = "❌ AI Project Could Not Be Repaired"
           msg["From"] = username
           msg["To"] = recipient
 
           msg.set_content("""
           AI PROJECT AUTOMATION
 
-          ❌ Final AI audit failed.
+          ❌ The project did not pass the final AI audit.
 
-          The system attempted to inspect and repair the project,
-          but the final verification did not pass.
+          🛠️ The system attempted automatic repair up to 3 times.
 
-          Check GitHub Actions for details:
+          The project may require manual attention.
 
+          GitHub Actions:
           https://github.com/mtmanagement220/my-ai-projects/actions
 
           -- AI Project Automation
