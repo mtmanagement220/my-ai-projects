@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#00b894"> 
+    <title>M-T Management Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+   
+</head>
+<body>
+  <div class="mobile-container">
+
+    <div id="authPage" class="auth-container">
+        <div class="logo-area">
+            <img id="brandLogoLogin" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Logo">
+            <h1 id="brandNameLogin">M-T MANAGEMENT PRO</h1>
+            <p>উৎপাদন ও খরচ ব্যবস্থাপনা</p>
+        </div>
+        
+        <div id="loginForm" class="auth-box">
+            <div class="input-group">
+                <label class="input-label">মোবাইল নম্বর</label>
+                <input type="number" id="lMob" class="app-input" placeholder="017xxxxxxxx">
+            </div>
+            <div class="input-group">
+                <label class="input-label">পাসওয়ার্ড</label>
+                <input type="password" id="lPass" class="app-input" placeholder="••••••••">
+            </div>
+            <button class="action-btn" onclick="handleLogin()">লগইন করুন</button>
+            <p onclick="toggleForm('reg')" style="text-align:center; color: var(--primary); margin-top: 25px; cursor: pointer; font-weight: 600;">নতুন অ্যাকাউন্ট তৈরি করুন</p>
+        </div>
+
+        <div id="regForm" class="auth-box hidden">
+            <h3 style="text-align: center; color: var(--text-main);">নতুন অ্যাকাউন্ট</h3>
+            <div class="input-group">
+                <label class="input-label">আপনার নাম</label>
+                <input type="text" id="rName" class="app-input" placeholder="নাম লিখুন">
+            </div>
+            <div class="input-group">
+                <label class="input-label">মোবাইল নম্বর</label>
+                <input type="number" id="rMob" class="app-input" placeholder="017xxxxxxxx">
+            </div>
+            <div class="input-group">
+                <label class="input-label">পাসওয়ার্ড</label>
+                <input type="password" id="rPass" class="app-input" placeholder="পাসওয়ার্ড সেট করুন">
+            </div>
+            <button class="action-btn" onclick="handleReg()">আবেদন পাঠান</button>
+            <p onclick="toggleForm('login')" style="text-align:center; color: var(--text-sub); margin-top: 20px; cursor: pointer;">লগইন পেজে ফিরে যান</p>
+        </div>
+    </div>
+    
+
+    <div id="adminPanel" class="hidden" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+        
+        <div class="app-header">
+            <div class="profile-section">
+                <div class="avatar-box">
+                    <img id="adminProfileImg" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png">
+                </div>
+                <div class="header-info">
+                    <h3 id="adminBrandName">Admin</h3>
+                    <span>Manager</span>
+                </div>
+            </div>
+            <button class="logout-btn" onclick="confirmLogout()"><i class="fas fa-power-off"></i></button>
+        </div>
+
+        <div class="scroll-content">
+            
+            <div class="stats-container">
+                <div class="stat-card-big">
+                    <div class="stat-info">
+                        <span>মোট কাজ (Total)</span>
+                        <h2 id="admTotWork">0</h2>
+                    </div>
+                    <div class="stat-icon"><i class="fas fa-industry"></i></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-card-half">
+                        <span style="font-size:12px; color:var(--text-sub);">মোট নেওয়া</span>
+                        <h3 id="admTotTaken" style="color: #e67e22;">0</h3>
+                    </div>
+                    <div class="stat-card-half">
+                        <span style="font-size:12px; color:var(--text-sub);">বর্তমান পাওনা</span>
+                        <h3 id="admTotDue" style="color: #d63031;">0</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="menu-title">ম্যানেজমেন্ট মেনু</div>
+            <div class="menu-grid">
+                <div class="menu-card" onclick="navTo('secProduction')">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span id="lbl_secProduction">প্রোডাকশন</span>
+                </div>
+                <div class="menu-card" onclick="navTo('secWork')">
+                    <i class="fas fa-briefcase"></i>
+                    <span id="lbl_secWork">কাজের এন্ট্রি</span>
+                </div>
+                <div class="menu-card" onclick="navTo('secCompany')">
+                    <i class="fas fa-building"></i>
+                    <span id="lbl_secCompany">কোম্পানি</span>
+                </div>
+                <div class="menu-card" onclick="navTo('secLoan')">
+                    <i class="fas fa-hand-holding-usd"></i>
+                    <span id="lbl_secLoan">পেমেন্ট/লোন</span>
+                </div>
+                <div class="menu-card" onclick="navTo('secNewProduction')">
+                    <i class="fas fa-boxes"></i>
+                    <span>Daily Production</span>
+                </div>
+                <div class="menu-card" onclick="navTo('secProducts')">
+                    <i class="fas fa-tags"></i>
+                    <span>Product & Rate</span>
+                </div>
+                <div class="menu-card" onclick="navTo('secNasta')">
+                    <i class="fas fa-coffee"></i>
+                    <span id="lbl_secNasta">নাস্তা খরচ</span>
+                </div>
+            </div>
+            
+            <div class="menu-title">অন্যান্য মেনু</div>
+            <div class="menu-list">
+                <div class="menu-item-list" onclick="navTo('secResult')">
+                    <div class="menu-icon-box"><i class="fas fa-chart-pie"></i></div>
+                    <div class="menu-label">চূড়ান্ত ব্যালেন্স শিট</div>
+                    <div class="menu-arrow"><i class="fas fa-chevron-right"></i></div>
+                </div>
+                <div class="menu-item-list" onclick="navTo('secReq')">
+                    <div class="menu-icon-box"><i class="fas fa-user-plus"></i></div>
+                    <div class="menu-label">রিকোয়েস্ট</div>
+                    <div class="menu-arrow"><i class="fas fa-chevron-right"></i></div>
+                </div>
+                <div class="menu-item-list" onclick="navTo('secSettings')">
+                    <div class="menu-icon-box"><i class="fas fa-cog"></i></div>
+                    <div class="menu-label">সেটিংস</div>
+                    <div class="menu-arrow"><i class="fas fa-chevron-right"></i></div>
+                </div>
+                <div class="menu-item-list" onclick="navTo('secRate')">
+                    <div class="menu-icon-box"><i class="fas fa-tags"></i></div>
+                    <div class="menu-label">রেট সেটআপ</div>
+                    <div class="menu-arrow"><i class="fas fa-chevron-right"></i></div>
+                </div>
+                <div class="menu-item-list" onclick="navTo('secNotifications')">
+                    <div class="menu-icon-box"><i class="fas fa-bell"></i></div>
+                    <div class="menu-label">নোটিফিকেশন / মেসেজ</div>
+                    <div class="menu-arrow"><i class="fas fa-chevron-right"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            <div class="nav-item active" onclick="goBack()"><i class="fas fa-home"></i><span>Home</span></div>
+            <div class="nav-fab" onclick="openChat('admin')"><i class="fas fa-comment-dots"></i></div>
+            <div class="nav-item" onclick="navTo('notice-bar')"><i class="fas fa-wallet"></i><span>MT-LOAN</span></div>
+        </div>
+    </div>
+
+    <div id="secAdminPanel" class="hidden" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+        <div class="app-header">
+            <div class="profile-section">
+                <div class="avatar-box">
+                    <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png">
+                </div>
+                <div class="header-info">
+                    <h3>Sec. Admin</h3>
+                    <span>Viewer</span>
+                </div>
+            </div>
+            <button class="logout-btn" onclick="confirmLogout()"><i class="fas fa-power-off"></i></button>
+        </div>
+        <div class="scroll-content">
+            <div class="stats-container">
+                <div class="stat-card-big" style="background:#00b894; color:white;">
+                    <div class="stat-info">
+                        <span style="color:#dfe6e9">কোম্পানি থেকে পাওনা (Due)</span>
+                        <h2 style="color:white" id="secAdmDue">0</h2>
+                    </div>
+                    <style>.stat-card-big::before{display:none}</style>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-card-half">
+                        <span>মোট কাজ</span>
+                        <h3 id="secAdmWork">0</h3>
+                    </div>
+                    <div class="stat-card-half">
+                        <span>মোট নেওয়া</span>
+                        <h3 id="secAdmTaken">0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="menu-title">ম্যানেজমেন্ট</div>
+            <div class="menu-list">
+                <div class="menu-item-list" onclick="openAdminReport('boardWork')">
+                    <div class="menu-icon-box"><i class="fas fa-clipboard-list"></i></div>
+                    <div class="menu-label">প্রোডাকশন রিপোর্ট</div>
+                    <div class="menu-arrow"><i class="fas fa-chevron-right"></i></div>
+                </div>
+                <div class="menu-item-list" onclick="openAdminReport('company')">
+                    <div class="menu-icon-box"><i class="fas fa-building"></i></div>
+                    <div class="menu-label">দেওয়া টাকার রিপোর্ট</div>
+                    <div class="menu-arrow"><i class="fas fa-chevron-right"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="secProduction" class="section-container hidden">
+        <div class="sec-header-sticky"><button class="back-circle" onclick="goBack()"><i class="fas fa-arrow-left"></i></button><h3 class="sec-title" id="t_secProduction">প্রোডাকশন</h3></div>
+        <div class="Mamun">
+            <div class="card">
+                <div class="input-group"><label class="input-label">তারিখ</label><input type="date" id="npDate" class="app-input"></div>
+                <label class="input-label">কর্মী সিলেক্ট করুন</label>
+                <div class="worker-select-grid" id="npWorkers"></div>
+                <div style="display:flex; gap:10px;">
+                    <div style="flex:1"><label class="input-label">Single Qty</label><input type="number" id="npS" class="app-input"></div>
+                    <div style="flex:1"><label class="input-label">Double Qty</label><input type="number" id="npD" class="app-input"></div>
+                </div>
+                <div style="display:flex; gap:10px; margin-top:10px;">
+                    <div style="flex:1"><input type="number" id="npRateS" class="app-input" placeholder="S Rate"></div>
+                    <div style="flex:1"><input type="number" id="npRateD" class="app-input" placeholder="D Rate"></div>
+                </div>
+                <button class="action-btn" onclick="saveBoardWork()">সেভ করুন</button>
+                <button class="report-view-btn" onclick="openAdminReport('boardWork')">রিপোর্ট দেখুন</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="secWork" class="section-container hidden">
+        <div class="sec-header-sticky"><button class="back-circle" onclick="goBack()"><i class="fas fa-arrow-left"></i></button><h3 class="sec-title" id="t_secWork">কাজের এন্ট্রি</h3></div>
+        <div class="sec-body">
+            <div class="card">
+                <div class="input-group"><label class="input-label">তারিখ</label><input type="date" id="pDate" class="app-input"></div>
+                <label class="input-label">কর্মী</label><div class="worker-select-grid" id="pWorkers"></div>
+                <div style="display:flex; gap:10px;">
+                    <div style="flex:1"><label class="input-label">Single</label><input type="number" id="sQty" class="app-input"></div>
+                    <div style="flex:1"><label class="input-label">Double</label><input type="number" id="dQty" class="app-input"></div>
+                </div>
+                <button class="action-btn" style="background:#e84393" onclick="saveUserRateWork()">সেভ করুন</button>
+                <button class="report-view-btn" onclick="openAdminReport('userWork')" style="color:#e84393; border-color:#e84393">রিপোর্ট দেখুন</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="secNasta" class="section-container hidden">
+        <div class="sec-header-sticky"><button class="back-circle" onclick="goBack()"><i class="fas fa-arrow-left"></i></button><h3 class="sec-title" id="t_secNasta">নাস্তা খরচ</h3></div>
+        <div class="sec-body">
+            <div class="card">
+                <div class="input-group"><label class="input-label">তারিখ</label><input type="date" id="nDate" class="app-input"></div>
+                <div class="input-group"><label class="input-label">টাকার পরিমাণ</label><input type="number" id="nAmount" class="app-input"></div>
+                <div class="input-group"><label class="input-label">বিবরণ</label><input type="text" id="nNote" class="app-input"></div>
+                <label class="input-label">যাদের খরচ হয়েছে</label><div class="worker-select-grid" id="nWorkers"></div>
+                <button class="action-btn" style="background:#6c5ce7" onclick="saveMoney('nasta')">সেভ করুন</button>
+                <button class="report-view-btn" onclick="openAdminReport('nasta')" style="color:#6c5ce7; border-color:#6c5ce7">রিপোর্ট দেখুন</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="secLoan" class="section-container hidden">
+        <div class="sec-header-sticky"><button class="back-circle" onclick="goBack()"><i class="fas fa-arrow-left"></i></button><h3 class="sec-title" id="t_secLoan">পেমেন্ট / লোন</h3></div>
+        <div class="sec-body">
+            <div class="card">
+                <div class="input-group"><label class="input-label">তারিখ</label><input type="date" id="lDate" class="app-input"></div>
+                <div class="input-group"><label class="input-label">টাকার পরিমাণ</label><input type="number" id="lAmount" class="app-input"></div>
+                <div class="input-group"><label class="input-label">নোট</label><input type="text" id="lNote" class="app-input"></div>
+                <label class="input-label">যাকে দেওয়া হলো</label><div class="worker-select-grid" id="lWorkers"></div>
+                <button class="action-btn" style="background:#0984e3" onclick="saveMoney('loan')">টাকা প্রদান করুন</button>
+                <button class="report-view-btn" onclick="openAdminReport('loan')" style="color:#0984e3; border-color:#0984e3">রিপোর্ট দেখুন</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="secCompany" class="section-container hidden">
+        <div class="sec-header-sticky"><button class="back-circle" onclick="goBack()"><i class="fas fa-arrow-left"></i></button><h3 class="sec-title" id="t_secCompany">কোম্পানি রিপোর্ট</h3></div>
+        <div class="sec-body">
+            <div class="card" id="compInputCard">
+                <h4 style="margin-top:0;">কোম্পানি থেকে টাকা নেওয়া</h4>
+                <div class="input-group"><label class="input-label">তারিখ</label><input type="date" id="cDate" class="app-input"></div>
+                <div class="input-group"><label class="input-label">টাকা</label><input type="number" id="cAmount" class="app-input"></div>
+                <div class="input-group"><label class="input-label">নোট</label><input type="text" id="cNote" class="app-input"></div>
+                <button class="action-btn" style="background:#e17055" onclick="saveCompanyData()">সেভ করুন</button>
+                <button class="report-view-btn" onclick="openAdminReport('company')" style="color:#e17055; border-color:#e17055">জমা / নেওয়া রিপোর্ট</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="secNewProduction" class="section-container hidden">
+        <div class="sec-header-sticky"><button class="back-circle" onclick="goBack()"><i class="fas fa-arrow-left"></i></button><h3 class="sec-title">দৈনিক Production</h3></div>
+        <div class="sec-body">
+            <div class="card">
+                <div class="input-group"><label class="input-label">তারিখ</label><input type="date" id="dailyProdDate" class="app-input"></div>
+                <div class="input-group"><label class="input-label">Product</label><select id="dailyProdProduct" class="app-input"></select></div>
+                <div class="input-group"><label class="input-label">কত পিস</label><input type="number" min="1" id="dailyProdQty" class="app-input" placeholder="যেমন 100"></div>
+                <div id="dailyProdPreview" class="summary-box" style="margin:10px 0;"></div>
+                <button class="action-btn" onclick="saveDailyProduction()">Production Save + হিসাব তৈরি</button>
+                <button class="report-view-btn" onclick="openAdminReport('newProduction')">Daily Production Report</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="secProducts" class="section-container hidden">
+        <div class="sec-header-sticky"><button class="back-circle" onclick="goBack()"><i class="fas fa-arrow-left"></i></button><h3 class="sec-title">Product & Worker Rate</h3></div>
+        <div class="sec-body">
+            <div class="card">
+                <h4 style="margin-top:0">নতুন Product</h4>
+                <div class="input-group"><label class="input-label">Product Name</label><input id="productName" class="app-input" placeholder="Product A"></div>
+                <div class="input-group"><label class="input-label">প্রতি পিস মোট মূল্য</label><input type="number" id="productTotalRate" class="app-input" placeholder="400"></div>
+                <div id="productRateInputs"></div>
+                <button class="action-btn" onclick="saveProduct()">Product Save</button>
+                <div id="productList" style="margin-top:15px"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="secNotifications" class="section-container hidden">
+        <div class="sec-header-sticky"><button class="back-circle" onclick="goBack()"><i class="fas fa-arrow-left"></i></button><h3 class="sec-title">নোটিফিকেশন / মেসেজ</h3></div>
+        <div class="sec-body">
+            <div class="card">
+                <p style="color:var(--text-sub);font-size:13px">অ্যাপে নতুন হিসাব হলে কর্মীর Notification তৈরি হবে। WhatsApp-এর জন্য নিচের বাটন থেকে প্রস্তুত মেসেজ পাঠানো যাবে।</p>
+                <button class="action-btn" style="background:#6c5ce7;margin-bottom:10px" onclick="alert(generateWeeklySummary())">📊 Weekly Summary তৈরি</button>
+                <div id="adminNotificationList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="secResult" class="section-container hidden">
+        <div class="sec-header-sticky"><button class="back-circle" onclick="goBack()"><i class="fas fa-arrow-left"></i></button><h3 class="sec-title">চূড়ান্ত ব্যালেন্স শিট</h3></div>
+        <div class="sec-body">
+            <div class="card">
+                <table class="data-table">
+                    <thead><tr><th>নাম</th><th>কাজ</th><th>নেওয়া</th><th>পাওনা</th></tr></thead>
+                    <tbody id="finalBalanceBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="secReq" class="section-container hidden">
+        <div class="sec-header-sticky"><button class="back-circle" onclick="goBack()"><i class="fas fa-arrow-left"></i></button><h3 class="sec-title">রিকোয়েস্ট ম্যানেজমেন্ট</h3></div>
+        <div class="sec-body">
+            <div class="card">
+                 <h4>নতুন পেন্ডিং রিকোয়েস্ট</h4>
+                 <table class="data-table"><tbody id="reqList"></tbody></table>
+            </div>
+            <div class="card">
+                <h4 style="color:var(--primary)">অ্যাক্টিভ ইউজার লিস্ট</h4>
+                <table class="data-table"><tbody id="activeUserList"></tbody></table>
+            </div>
+        </div>
+    </div>
+
+    <div id="secSettings" class="section-container hidden">
+        <div class="sec-header-sticky"><button class="back-circle" onclick="goBack()"><i class="fas fa-arrow-left"></i></button><h3 class="sec-title">সেটিংস</h3></div>
+        <div class="sec-body">
+            
+            <div class="card settings-group">
+                <div class="settings-header">ব্র্যান্ডিং সেটিংস</div>
+                <div class="input-group">
+                    <label class="input-label">ব্র্যান্ডের নাম</label>
+                    <input type="text" id="setBrandName" class="app-input" placeholder="নাম দিন">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">লোগো আপলোড</label>
+                    <input type="file" id="setLogoUpload" accept="image/*" class="app-input" onchange="uploadBrandLogo(this)">
+                </div>
+                <button class="action-btn" onclick="saveBranding()">Save Branding</button>
+            </div>
+
+            <div class="card settings-group">
+                <div class="settings-header">সেকেন্ডারি এডমিন</div>
+                <div class="input-group">
+                    <label class="input-label">মোবাইল নম্বর</label>
+                    <input type="number" id="secAdmMob" class="app-input">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">পাসওয়ার্ড</label>
+                    <input type="text" id="secAdmPass" class="app-input">
+                </div>
+                <button class="action-btn" onclick="saveSecAdmin()">সেভ করুন</button>
+            </div>
+
+            <div class="card settings-group">
+                <div class="settings-header">সেকশন সেটিংস</div>
+                <label class="input-label">নাম পরিবর্তন</label>
+                <input type="text" id="rn_secProduction" class="app-input" style="margin-bottom:5px;" placeholder="প্রোডাকশন">
+                <input type="text" id="rn_secWork" class="app-input" style="margin-bottom:5px;" placeholder="কাজ">
+                <input type="text" id="rn_secNasta" class="app-input" style="margin-bottom:5px;" placeholder="নাস্তা">
+                <input type="text" id="rn_secLoan" class="app-input" style="margin-bottom:5px;" placeholder="পেমেন্ট">
+                <input type="text" id="rn_secCompany" class="app-input" style="margin-bottom:15px;" placeholder="কোম্পানি রিপোর্ট">
+                <button class="action-btn" style="background:#2d3436" onclick="saveSectionNames()">নাম সেভ করুন</button>
+                
+               <div style="margin-top:20px;">
+   <h3>Notice Control</h3>
+
+<textarea id="adminNoticeInput"
+    style="width:100%; height:100px; padding:10px;"></textarea>
+
+<br><br>
+
+<button onclick="updateNoticeFromAdmin()"
+    style="padding:8px 20px; background:#00b894; color:white; border:none; border-radius:6px;">
+    Save Notice
+</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="secRate" class="section-container hidden">
+        <div class="sec-header-sticky"><button class="back-circle" onclick="goBack()"><i class="fas fa-arrow-left"></i></button><h3 class="sec-title">রেট ও ইউজার</h3></div>
+        <div class="sec-body">
+            <div class="card">
+                <h4>নতুন কর্মী যোগ করুন</h4>
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="newWorkerName" class="app-input" placeholder="নাম">
+                    <button class="action-btn" style="width:auto; margin:0;" onclick="addWorker()">ADD</button>
+                </div>
+                <h4>রেট তালিকা</h4>
+                <table class="data-table">
+                    <thead>
+    <tr>
+        <th>নাম</th>
+        <th>S Rate</th>
+        <th>D Rate</th>
+        <th>Lock</th> <th>Action</th>
+    </tr>
+</thead>
+
+                    <tbody id="settingsTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="userDashboard" class="hidden" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+        <div class="app-header" style="background: var(--primary); color: white;">
+            <div class="profile-section">
+                <div class="avatar-box" style="border-color:white;">
+                    <img id="uImg" src="https://cdn-icons-png.flaticon.com/512/149/149071.png">
+                   <div class="avatar-box" style="border-color:white;">
+    <img id="uImg" src="https://cdn-icons-png.flaticon.com/512/149/149071.png"
+         style="width:70px;height:70px;border-radius:50%;object-fit:cover;">
+    </div>
+                </div>
+                <div class="header-info">
+                    <h3 style="color:white;" id="uNameDisp">User</h3>
+                    <span style="background:rgba(255,255,255,0.2); color:white;">Worker</span>
+                </div>
+            </div>
+            <div class="logout-btn" onclick="confirmLogout()" style="color:white;"><i class="fas fa-power-off"></i></div>
+        </div>
+
+<marquee id="noticeText" scrollamount="6" style="width: 100%; padding-top: 3px;">নোটিশ লোড হচ্ছে...</marquee>
+
+
+
+        <div class="scroll-content">
+            <div style="background:white; padding:15px; border-radius:12px; margin-bottom:20px; text-align:center; border: 1px solid #eee;">
+                 <div id="digitalTime" style="font-size:28px; font-weight:700; color:var(--text-main);">12:00 PM</div>
+                 <div id="digitalDate" style="font-size:14px; color:var(--text-sub);">Sunday, 01 January</div>
+            </div>
+
+            <div class="card" style="margin-bottom:15px; padding:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <strong>🔔 সর্বশেষ আপডেট</strong><button onclick="requestBrowserNotification()" style="border:0;background:#00b894;color:white;border-radius:8px;padding:6px 9px">Notification On</button>
+                </div>
+                <div id="userNotificationList" style="margin-top:8px"></div>
+            </div>
+
+            <div class="stats-container">
+                <div class="stat-card-big" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe); color:white;">
+                    <div class="stat-info">
+                        <span style="color:#dfe6e9;">আমার মোট পাওনা</span>
+                       
+                    <h3 style="margin:10px 0 0 0; font-weight:700;">
+    <span id="uBal" style="
+        font-size:30px;
+        font-weight:900;
+       color: #FFD700;
+    ">0</span>
+    <span style="font-size:20px; color:#dfe6e9;"> ৳</span>
+</h3>
+                    </div>
+                    <div class="stat-icon" style="color:white; opacity:0.3;"><i class="fas fa-wallet"></i></div>
+                    <style>.stat-card-big::before{display:none;}</style>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-card-half">
+                        <span style="font-size:12px; color:var(--text-sub);">মোট কাজ</span>
+                        <h3 id="uTotWork" style="color: #00b894;">0</h3>
+                    </div>
+                    <div class="stat-card-half">
+                        <span style="font-size:12px; color:var(--text-sub);">মোট নেওয়া</span>
+                        <h3 id="uTotTaken" style="color: #d63031;">0</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="menu-list">
+                <div class="menu-item-list" onclick="openUserReport('boardWork')">
+                    <div class="menu-icon-box" style="color:#00b894"><i class="fas fa-clipboard-list"></i></div>
+                    <div class="menu-label">প্রোডাকশন রিপোর্ট</div>
+                    <div class="menu-arrow"><i class="fas fa-chevron-right"></i></div>
+                </div>
+                <div class="menu-item-list" onclick="openUserReport('work')">
+                    <div class="menu-icon-box" style="color:#e84393"><i class="fas fa-briefcase"></i></div>
+                    <div class="menu-label">কাজের রিপোর্ট</div>
+                    <div class="menu-arrow"><i class="fas fa-chevron-right"></i></div>
+                </div>
+                <div class="menu-item-list" onclick="openUserReport('nasta')">
+                    <div class="menu-icon-box" style="color:#fdcb6e"><i class="fas fa-coffee"></i></div>
+                    <div class="menu-label">নাস্তা খরচ</div>
+                    <div class="menu-arrow"><i class="fas fa-chevron-right"></i></div>
+                </div>
+                <div class="menu-item-list" onclick="openUserReport('payment')">
+                    <div class="menu-icon-box" style="color:#0984e3"><i class="fas fa-hand-holding-usd"></i></div>
+                    <div class="menu-label">পেমেন্ট / লোন</div>
+                    <div class="menu-arrow"><i class="fas fa-chevron-right"></i></div>
+                </div>
+                <div class="menu-item-list" onclick="openSettingsModalUser()">
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+             <div class="nav-item active" onclick="document.getElementById('userDashboard').classList.remove('hidden')"><i class="fas fa-home"></i><span>Home</span></div>
+             <div class="nav-fab" onclick="openChat('user')"><i class="fas fa-comment"></i></div>
+              <div class="nav-item" onclick="openUserProfile()">
+        <i class="fas fa-user"></i>
+        <span>Profile</span>
+     </div>
+    
+        </div>
+    </div>
+   <div id="userProfileSec" class="hidden" 
+     style="flex:1; min-height:100vh; background: linear-gradient(135deg, #00b894, #0984e3); padding:20px;">
+
+    <!-- Header -->
+    <div style="display:flex; align-items:center; margin-bottom:20px; color:white;">
+        <button onclick="closeUserProfile()" 
+                style="background:none; border:none; color:white; font-size:20px; margin-right:10px;">← Back</button>
+        <h3 style="margin:0;">আমার প্রোফাইল</h3>
+    </div>
+
+    <!-- Profile Card -->
+    <div style="background:white; border-radius:15px; padding:25px; text-align:center; box-shadow:0 5px 20px rgba(0,0,0,0.1);">
+
+        <!-- Avatar -->
+        <div style="position:relative; display:inline-block; margin-bottom:15px;">
+            <img id="profilePreview"
+                 src="https://cdn-icons-png.flaticon.com/512/149/149071.png"
+                 style="width:120px; height:120px; border-radius:50%; object-fit:cover; border:4px solid #00b894;">
+            <input type="file" accept="image/*" onchange="changeProfilePic(this)" 
+                   style="position:absolute; inset:0; opacity:0; cursor:pointer;">
+        </div>
+
+        <!-- Name -->
+        <h2 id="profileName" style="margin-top:10px; color:#2d3436;">Opu</h2>
+        <p style="color:gray; margin-bottom:20px;">Worker Account</p>
+
+        <!-- Password Change -->
+        <div style="text-align:left; margin-top:20px;">
+            <label for="newPassword" style="font-weight:bold;">New Password:</label>
+            <input type="password" id="newPassword" 
+                   style="width:100%; padding:8px; margin-top:5px; border-radius:6px; border:1px solid #ccc;">
+            
+            <label for="confirmPassword" style="font-weight:bold; margin-top:10px; display:block;">Confirm Password:</label>
+            <input type="password" id="confirmPassword" 
+                   style="width:100%; padding:8px; margin-top:5px; border-radius:6px; border:1px solid #ccc;">
+
+            <button onclick="updatePassword()"
+                    style="margin-top:15px; padding:10px 20px; background:#00b894; color:white; border:none; border-radius:6px;">
+                Update Password
+            </button>
+        </div>
+
+    </div>
+</div>
+    <div id="reportModal" class="hidden" style="position: fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; display:flex; align-items:flex-end;">
+        <div style="background:white; width:100%; height:90%; border-radius:20px 20px 0 0; display:flex; flex-direction:column; overflow:hidden;">
+            <div style="padding:15px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center; background:var(--primary); color:white;">
+                <h3 id="repTitle" style="margin:0;">রিপোর্ট</h3>
+                <button onclick="closeModal()" style="background:rgba(255,255,255,0.2); color:white; border:none; width:30px; height:30px; border-radius:50%; font-weight:bold;">✕</button>
+            </div>
+            <div id="repContent" style="overflow-y:auto; flex:1; padding:15px;"></div>
+        </div>
+    </div>
+
+    <div id="chatModal" class="hidden" style="position: absolute; inset:0; background:white; z-index:1000; display:flex; flex-direction:column;">
+        <div class="app-header" style="background:#00b894; color:white;">
+            <h3>💬 Support Chat</h3>
+            <button onclick="closeChat()" style="background:transparent; border:none; color:white; font-size:24px;">✕</button>
+        </div>
+        <div class="chat-container">
+            <div id="chatBody" class="chat-body"></div>
+            <div class="chat-footer">
+                <input type="text" id="chatInput" class="chat-input" placeholder="মেসেজ লিখুন...">
+                <button onclick="sendMsg()" class="chat-send"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
