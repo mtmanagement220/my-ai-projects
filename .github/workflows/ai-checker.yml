@@ -126,9 +126,12 @@ jobs:
             Audit run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           add-paths: |
             projects/**
+            .github/workflows/**
+            .github/scripts/**
+            README.md
 
       - name: Email result (optional)
-        if: always() && secrets.GMAIL_USERNAME != '' && secrets.GMAIL_APP_PASSWORD != '' && secrets.GMAIL_TO != ''
+        if: always()
         env:
           GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
@@ -139,9 +142,12 @@ jobs:
           python - <<'PY'
           import os, smtplib
           from email.message import EmailMessage
-          username = os.environ["GMAIL_USERNAME"]
-          password = os.environ["GMAIL_APP_PASSWORD"]
-          recipient = os.environ["GMAIL_TO"]
+          username = os.environ.get("GMAIL_USERNAME", "")
+          password = os.environ.get("GMAIL_APP_PASSWORD", "")
+          recipient = os.environ.get("GMAIL_TO", "")
+          if not all((username, password, recipient)):
+              print("Email reporting skipped: optional Gmail secrets are not all configured.")
+              raise SystemExit(0)
           status = os.environ.get("JOB_STATUS", "unknown").upper()
           msg = EmailMessage()
           msg["Subject"] = f"Project audit: {status}"
