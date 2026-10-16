@@ -35,3 +35,17 @@ Never commit API keys, passwords, production credentials, or environment files. 
 ## Safety
 
 AI changes are proposed in a pull request, not pushed directly to `main`. Audit failures must be investigated; an AI PASS alone does not prove a project is secure or bug-free. Do not merge or deploy until the relevant checks and a human review pass.
+
+
+## Readable audit results
+
+After each audit run, open the GitHub Actions run page. The report appears in the run summary and is also included in the downloadable artifact named `project-audit-report-<run-id>`.
+
+The report shows:
+- Overall result: passed, failed, or incomplete.
+- Repository, branch, commit, and run link.
+- Initial and final static-check output.
+- Final AI audit findings, including problem path, severity, and suggested fix when the AI provides them.
+- Logs from each audit/repair attempt.
+
+If a check fails, open the final report first, then inspect the full logs in the artifact. Review all proposed code changes in the pull request before merging. No AI audit can guarantee that every bug or security issue has been found.
