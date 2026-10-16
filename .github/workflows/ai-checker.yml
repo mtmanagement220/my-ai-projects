@@ -92,6 +92,79 @@ jobs:
           echo "final_status=failed" >> "$GITHUB_OUTPUT"
           exit 1
 
+      - name: Create readable report and GitHub summary
+        if: always()
+        env:
+          INITIAL_CHECK: ${{ steps.static_before.outcome }}
+          AUDIT_STEP: ${{ steps.ai_repair.outcome }}
+          FINAL_STATUS: ${{ steps.ai_repair.outputs.final_status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          reports = Path("audit-reports")
+          reports.mkdir(exist_ok=True)
+
+          def read_log(name, limit=8000):
+              p = reports / name
+              if not p.exists():
+                  return "এই ধাপের লগ তৈরি হয়নি।"
+              data = p.read_text(encoding="utf-8", errors="replace").strip()
+              if not data:
+                  return "লগ ফাইল খালি।"
+              if len(data) > limit:
+                  data = data[-limit:] + "\n[শেষ অংশ দেখানো হয়েছে; সম্পূর্ণ লগ artifact-এ আছে।]"
+              return data
+
+          status = os.getenv("FINAL_STATUS", "unknown")
+          if status == "passed":
+              verdict = "## ফলাফল: সফল\nচূড়ান্ত static checks এবং AI audit পাস করেছে।"
+          elif status == "failed":
+              verdict = "## ফলাফল: সমস্যা পাওয়া গেছে\nচূড়ান্ত পরীক্ষা পাস করেনি। নিচের লগে ত্রুটি ও AI-এর পরামর্শ দেখুন।"
+          else:
+              verdict = "## ফলাফল: অসম্পূর্ণ\nচূড়ান্ত ফলাফল তৈরি হয়নি; workflow error log দেখুন।"
+
+          lines = [
+              "# Project Audit Report", "", verdict, "",
+              "## রান-এর তথ্য",
+              "- Repository: " + os.getenv("GITHUB_REPOSITORY", "unknown"),
+              "- Branch: " + os.getenv("BRANCH_NAME", "unknown"),
+              "- Commit: " + os.getenv("COMMIT_SHA", "unknown"),
+              "- প্রাথমিক static check: " + os.getenv("INITIAL_CHECK", "unknown"),
+              "- Audit/repair ধাপ: " + os.getenv("AUDIT_STEP", "unknown"),
+              "- GitHub Actions রান: " + os.getenv("RUN_URL", "লিংক নেই"), "",
+              "## ১. চূড়ান্ত static check",
+              read_log("final-static-check.txt"), "",
+              "## ২. চূড়ান্ত AI audit — সমস্যা ও প্রস্তাবিত সমাধান",
+              read_log("final-ai-audit.txt"), "",
+              "## ৩. প্রাথমিক পরীক্ষা",
+              read_log("initial-static-check.txt", 3000), "",
+              "## ৪. AI audit ও repair প্রচেষ্টার লগ"
+          ]
+          attempts = sorted(reports.glob("ai-audit-*.txt"))
+          if attempts:
+              for p in attempts:
+                  lines.extend(["### " + p.name, read_log(p.name, 3000), ""])
+          else:
+              lines.append("AI audit/repair attempt-এর লগ পাওয়া যায়নি।")
+          lines.extend([
+              "## কীভাবে ফলাফল ব্যবহার করবে",
+              "1. final-static-check.txt-এ syntax/code-check error দেখো।",
+              "2. final-ai-audit.txt-এ PROBLEMS, path, severity এবং suggested_fix অংশ দেখো।",
+              "3. AI পরিবর্তনের Pull Request-এর diff পরীক্ষা করে তারপর merge করার সিদ্ধান্ত নাও।",
+              "4. এই workflow নিজে Production deploy করে না; hosting provider-এর auto-publish আলাদাভাবে নিয়ন্ত্রণ করতে হয়।",
+              "",
+              "AI audit সহায়ক পরীক্ষা; সম্পূর্ণ নিরাপত্তা বা ত্রুটিমুক্তির নিশ্চয়তা নয়।"
+          ])
+          report = "\n".join(lines) + "\n"
+          (reports / "report.md").write_text(report, encoding="utf-8")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write(report)
+          print("Readable report created: audit-reports/report.md")
+
       - name: Upload audit reports
         if: always()
         uses: actions/upload-artifact@v4
