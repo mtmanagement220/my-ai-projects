@@ -45,6 +45,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Run this workflow from the main branch only."
+            exit 1
+          fi
           RUNS="$(gh api "repos/$REPOSITORY/actions/workflows/ai-checker.yml/runs?branch=main&per_page=50")"
           MATCH="$(printf '%s' "$RUNS" | python -c 'import json,sys,os; d=json.load(sys.stdin); sha=os.environ["GH_SHA"]; runs=[r for r in d.get("workflow_runs",[]) if r.get("head_sha")==sha and r.get("status")=="completed" and r.get("conclusion")=="success"]; print("yes" if runs else "no")')"
           if [ "$MATCH" != "yes" ]; then
