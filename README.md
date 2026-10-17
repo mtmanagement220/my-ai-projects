@@ -1,51 +1,47 @@
-# Universal AI Project Audit
+# Universal Project Audit and Repair Workflow
 
-This repository stores projects separately under `projects/`.
+This repository is set up to review different projects without assuming that every upload uses the same framework.
 
-## Add a project
+## Upload a project
 
-1. Create a new folder, for example `projects/project2/`.
-2. Upload the complete project files into that folder. Keep each project self-contained.
-3. Commit/push the files to `main` to start the audit, or open **Actions → Universal Project Audit and Repair → Run workflow**.
-4. Check the workflow result and download the `project-audit-report` artifact if a check fails.
-5. Review any AI repair pull request carefully. Merge only after the checks pass and you understand the changes.
+1. Upload the project into the repository, either at the root or in a separate folder. Keep each project's files together.
+2. Commit the upload to `main` to trigger the audit, or run **Actions → Universal Project Audit and Repair → Run workflow**.
+3. Open the workflow run and read the **Summary** first.
+4. Download the `project-audit-report` artifact for the full report and attempt logs.
+5. If AI proposes code changes, inspect the generated Pull Request and every changed file. Do not merge until you approve the changes.
 
-## What is checked
+## What the workflow does
 
-- JSON syntax.
-- Python syntax (without executing the project).
-- JavaScript syntax for `.js`, `.mjs`, and `.cjs`.
-- AI review by configured providers (Gemini, Groq, and OpenRouter).
-- Up to three bounded AI repair attempts, followed by final checks.
+- Looks for supported project/source files across the repository, not only `projects/`.
+- Identifies common project types (Node.js, Python, Flutter/Dart, PHP, Java/Maven, Gradle/Android, Rust, Go, Docker).
+- Runs available low-risk syntax checks for JSON, Python and JavaScript.
+- Runs the configured AI audit providers and reports API/configuration failures instead of silently passing.
+- Attempts bounded AI repairs in the temporary GitHub Actions workspace, then runs the final checks again.
+- Publishes a readable run summary and a downloadable artifact with logs from the audit and repair attempts.
+- Proposes code changes for human review; it does not directly commit AI repairs to `main`.
 
-This is a starter audit pipeline, not a universal proof of correctness. Framework-specific build/test commands (for example, React, Next.js, Flutter, Android, PHP, or Java) should be configured and run in isolated jobs before considering a project production-ready. The audit workflow does **not** deploy. Production deployment is available only through **Actions → Manual Production Deployment → Run workflow**, where you must choose `YES` and select either Vercel or Netlify. The deployment workflow requires a successful audit for the exact selected commit and uses the configured deploy hook. A hook response means the request was accepted, not that the live site has passed a smoke test.\n\n**Important before merging this setup:** Vercel and Netlify Git integrations can still automatically deploy when `main` changes, independently of GitHub Actions. Disable automatic production deployments in the hosting provider(s) first, or configure their production deploy behavior to require a manual action. Otherwise merging to `main` may still deploy automatically outside these workflows.
+## Important limitations
 
-## Required repository secrets
+Project detection is not the same as a complete build or runtime test. Framework-specific build/test commands are not automatically run for every technology. The report must clearly be reviewed, and the project's proper build/tests should be added when its framework is known.
 
+The workflow does **not** deploy to Production. The production deployment workflow has been removed from this setup branch for now. Hosting-provider Git integration or auto-publishing is separate from GitHub Actions, so verify that Netlify automatic publishing is disabled before merging anything to `main`.
+
+## Required GitHub Actions secrets
+
+Configure at least one provider key:
 - `GEMINI_API_KEY`
 - `GROQ_API_KEY`
 - `OPENROUTER_API_KEY`
 
-The workflow can run with one or more configured AI providers; missing provider keys are skipped. If all provider keys are missing or every configured provider errors, the audit fails closed.
+Optional email reporting:
+- `GMAIL_USERNAME`
+- `GMAIL_APP_PASSWORD`
+- `GMAIL_TO`
 
-Optional email report secrets: `GMAIL_USERNAME`, `GMAIL_APP_PASSWORD`, `GMAIL_TO`.
+Never upload API keys, passwords, production credentials, or `.env` files into the repository. Store credentials in GitHub Actions secrets.
 
-Never commit API keys, passwords, production credentials, or environment files. Keep them in GitHub Actions secrets.
+## Safe operating sequence
 
-## Safety
+**Upload → Detect → Static checks → AI audit → Limited repair attempt → Recheck → Report → Human review/approval → (later, separately configured) manual deployment.**
 
-AI changes are proposed in a pull request, not pushed directly to `main`. Audit failures must be investigated; an AI PASS alone does not prove a project is secure or bug-free. Do not merge or deploy until the relevant checks and a human review pass.
-
-
-## Readable audit results
-
-After each audit run, open the GitHub Actions run page. The report appears in the run summary and is also included in the downloadable artifact named `project-audit-report-<run-id>`.
-
-The report shows:
-- Overall result: passed, failed, or incomplete.
-- Repository, branch, commit, and run link.
-- Initial and final static-check output.
-- Final AI audit findings, including problem path, severity, and suggested fix when the AI provides them.
-- Logs from each audit/repair attempt.
-
-If a check fails, open the final report first, then inspect the full logs in the artifact. Review all proposed code changes in the pull request before merging. No AI audit can guarantee that every bug or security issue has been found.
+A passing AI audit is not proof that a project is secure or defect-free. Review the evidence and run project-specific tests before approval.
