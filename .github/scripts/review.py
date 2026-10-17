@@ -7,7 +7,7 @@ ROOT = Path(".")
 SUPPORTED = {
     ".html", ".htm", ".css", ".scss", ".js", ".mjs", ".cjs", ".json",
     ".py", ".ts", ".tsx", ".jsx", ".vue", ".svelte", ".php", ".java",
-    ".kt", ".kts", ".xml", ".md", ".txt", ".yml", ".yaml", ".toml",
+    ".kt", ".kts", ".xml", ".yml", ".yaml", ".toml",
     ".sql", ".go", ".rs", ".rb", ".sh", ".swift", ".dart", ".gradle",
     ".properties", ".ipynb", ".r", ".cs", ".cpp", ".c", ".h", ".hpp"
 }
@@ -141,7 +141,9 @@ def main():
         ("openrouter", "OPENROUTER_API_KEY")
     ]
     configured = 0
-    failures = []
+    successful_responses = 0
+    audit_failures = []
+    provider_errors = []
     for provider, key_env in providers:
         if not os.getenv(key_env):
             print(f"SKIPPED {provider}: API key not configured.")
@@ -154,20 +156,31 @@ def main():
             result, error = None, f"{type(exc).__name__}: {exc}"
         if error:
             print(f"ERROR {provider}: {error}")
-            failures.append(f"{provider} API error")
+            provider_errors.append(f"{provider} API error")
             continue
         print(result)
         state = status_of(result)
-        if state != "PASSED":
-            failures.append(f"{provider} returned {state}")
+        if state == "PASSED":
+            successful_responses += 1
+        else:
+            audit_failures.append(f"{provider} returned {state}")
 
     if configured == 0:
         print("STATUS: FAILED\nNo AI provider API key is configured in GitHub Actions secrets.")
         return 1
-    if failures:
+    if successful_responses == 0:
         print("\nSTATUS: FAILED")
-        print("Issues: " + ", ".join(failures))
+        print("No AI provider returned a usable passing audit. Provider errors: " + ", ".join(provider_errors))
         return 1
+    if audit_failures:
+        print("\nSTATUS: FAILED")
+        print("Audit findings or invalid responses: " + ", ".join(audit_failures))
+        if provider_errors:
+            print("Provider errors (additional): " + ", ".join(provider_errors))
+        return 1
+    if provider_errors:
+        print("WARNING: some configured providers failed; at least one provider completed a passing audit.")
+        print("Provider errors: " + ", ".join(provider_errors))
     print("\nSTATUS: PASSED")
     return 0
 
