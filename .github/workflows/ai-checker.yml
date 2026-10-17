@@ -3,11 +3,6 @@ name: Universal Project Audit and Repair
 on:
   push:
     branches: [main]
-    paths:
-      - "projects/**"
-      - ".github/scripts/**"
-      - ".github/workflows/**"
-      - "README.md"
   workflow_dispatch:
 
 permissions:
@@ -198,10 +193,8 @@ jobs:
 
             Audit run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           add-paths: |
-            projects/**
-            .github/workflows/**
-            .github/scripts/**
-            README.md
+            .
+            :(exclude).github/**
 
       - name: Email result (optional)
         if: always()
