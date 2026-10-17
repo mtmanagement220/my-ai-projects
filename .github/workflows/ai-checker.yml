@@ -42,10 +42,14 @@ jobs:
       - name: Install audit dependency
         run: python -m pip install --disable-pip-version-check requests
 
-      - name: Run deterministic checks
+      - name: Run initial project checks
         id: static_before
         continue-on-error: true
-        run: python .github/scripts/static_check.py
+        shell: bash
+        run: |
+          mkdir -p audit-reports
+          python .github/scripts/static_check.py 2>&1 | tee audit-reports/initial-static-check.txt
+          exit ${PIPESTATUS[0]}
 
       - name: AI audit and bounded repair
         id: ai_repair
@@ -72,7 +76,7 @@ jobs:
           done
 
           echo "=== Final deterministic checks ==="
-          python .github/scripts/static_check.py 2>&1 | tee audit-reports/static-check.txt
+          python .github/scripts/static_check.py 2>&1 | tee audit-reports/final-static-check.txt
           STATIC_STATUS=${PIPESTATUS[0]}
 
           echo "=== Final AI audit ==="
@@ -172,7 +176,7 @@ jobs:
       # Never push AI changes directly to main. Create a reviewable PR instead.
       # If tests still fail, the PR is marked for manual review; it is not deployed here.
       - name: Create repair pull request
-        if: always() && steps.ai_repair.outcome != 'skipped'
+        if: always() && steps.ai_repair.outcome != 'skipped' && github.ref == 'refs/heads/main'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -195,6 +199,8 @@ jobs:
           add-paths: |
             .
             :(exclude).github/**
+            :(exclude)audit-reports/**
+            :(exclude)README.md
 
       - name: Email result (optional)
         if: always()
