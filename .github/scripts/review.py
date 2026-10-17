@@ -118,8 +118,8 @@ PROJECT FILES:
 def status_of(text):
     if not text:
         return "INVALID"
-    passed = re.search(r"(?im)^STATUS:\\s*PASSED\\s*$", text)
-    failed = re.search(r"(?im)^STATUS:\\s*FAILED\\s*$", text)
+    passed = re.search(r"(?im)^STATUS:\s*PASSED\s*$", text)
+    failed = re.search(r"(?im)^STATUS:\s*FAILED\s*$", text)
     if failed and not passed:
         return "FAILED"
     if passed and not failed:
