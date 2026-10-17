@@ -7,7 +7,7 @@ ROOT = Path(".").resolve()
 SUPPORTED = {
     ".html", ".htm", ".css", ".scss", ".js", ".mjs", ".cjs", ".json",
     ".py", ".ts", ".tsx", ".jsx", ".vue", ".svelte", ".php", ".java",
-    ".kt", ".kts", ".xml", ".md", ".txt", ".yml", ".yaml", ".toml",
+    ".kt", ".kts", ".xml", ".yml", ".yaml", ".toml",
     ".sql", ".go", ".rs", ".rb", ".sh", ".swift", ".dart", ".gradle",
     ".properties", ".r", ".cs", ".cpp", ".c", ".h", ".hpp"
 }
@@ -98,6 +98,9 @@ PROJECT FILES:
     allowed = {item["path"]: item["content"] for item in files}
     applied = 0
     for item in changes:
+        if not isinstance(item, dict):
+            print("BLOCKED invalid change item; skipped.")
+            continue
         rel = item.get("path")
         content = item.get("content")
         if not isinstance(rel, str) or not isinstance(content, str) or rel not in allowed:
