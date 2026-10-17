@@ -15,25 +15,43 @@ CHECKED = 0
 DETECTED = set()
 
 
+PROJECT_SUFFIXES = {
+    ".html", ".htm", ".css", ".scss", ".js", ".mjs", ".cjs", ".json",
+    ".py", ".ts", ".tsx", ".jsx", ".vue", ".svelte", ".php", ".java",
+    ".kt", ".kts", ".xml", ".yml", ".yaml", ".toml", ".sql", ".go",
+    ".rs", ".rb", ".sh", ".swift", ".dart", ".gradle", ".properties",
+    ".r", ".cs", ".cpp", ".c", ".h", ".hpp"
+}
+PROJECT_FILENAMES = {
+    "dockerfile", "makefile", "go.mod", "cargo.toml", "pom.xml",
+    "composer.json", "package.json", "pubspec.yaml", "requirements.txt",
+    "pyproject.toml", "setup.py", "build.gradle", "build.gradle.kts"
+}
+
+
 def files():
     return [
         p for p in ROOT.rglob("*")
         if p.is_file()
         and not any(part in IGNORED for part in p.parts)
-        and p.name not in {".env", ".env.local", ".env.production"}
+        and p.name not in {".env", ".env.local", ".env.production", "secrets.json"}
     ]
 
 
 def main():
     global CHECKED
     all_files = files()
-    if not all_files:
+    project_files = [
+        p for p in all_files
+        if p.suffix.lower() in PROJECT_SUFFIXES or p.name.lower() in PROJECT_FILENAMES
+    ]
+    if not project_files:
         print("STATUS: FAILED")
-        print("ERROR: no project files found. Upload source files and run the workflow again.")
+        print("ERROR: no supported project source/config files found. Upload a project first; README-only repositories are not treated as projects.")
         return 1
 
     js_files = []
-    for path in all_files:
+    for path in project_files:
         rel = path.as_posix()
         name = path.name.lower()
         suffix = path.suffix.lower()
