@@ -1,34 +1,33 @@
-# Universal Project Audit and Repair Workflow
+# Universal Project Audit & Repair Workflow
 
-This repository is set up to review different projects without assuming that every upload uses the same framework.
+This repository is intended to host different projects over time. The workflow scans project files at the repository root or inside subfolders and does not assume one specific application.
 
-## Upload a project
+## Upload and check a new project
 
-1. Upload the project into the repository, either at the root or in a separate folder. Keep each project's files together.
-2. Commit the upload to `main` to trigger the audit, or run **Actions → Universal Project Audit and Repair → Run workflow**.
-3. Open the workflow run and read the **Summary** first.
-4. Download the `project-audit-report` artifact for the full report and attempt logs.
-5. If AI proposes code changes, inspect the generated Pull Request and every changed file. Do not merge until you approve the changes.
+1. Upload the new project's files to this repository (root or a dedicated folder). Do not upload `.env` files, passwords, API keys, build output, or `node_modules`.
+2. Commit the upload to `main` to trigger the audit, or use **Actions → Universal Project Audit and Repair → Run workflow**.
+3. Open the run and read the **Summary** first.
+4. Download `project-audit-report-<run-id>` for the detailed logs.
+5. If the workflow proposes code repairs, review the Pull Request diff and project-specific tests. Merge only after you approve it.
 
-## What the workflow does
+## What it checks
 
-- Looks for supported project/source files across the repository, not only `projects/`.
-- Identifies common project types (Node.js, Python, Flutter/Dart, PHP, Java/Maven, Gradle/Android, Rust, Go, Docker).
-- Runs available low-risk syntax checks for JSON, Python and JavaScript.
-- Runs the configured AI audit providers and reports API/configuration failures instead of silently passing.
-- Attempts bounded AI repairs in the temporary GitHub Actions workspace, then runs the final checks again.
-- Publishes a readable run summary and a downloadable artifact with logs from the audit and repair attempts.
-- Proposes code changes for human review; it does not directly commit AI repairs to `main`.
+- Detects common project markers for Node.js/JavaScript, Python, Flutter/Dart, PHP, Java/Maven, Gradle/Android, Rust, Go and Docker.
+- Runs JSON syntax, Python syntax and JavaScript syntax checks where applicable.
+- Uses configured AI providers to audit code and, when appropriate, attempts limited fixes in the temporary runner workspace.
+- Re-runs checks and produces a readable GitHub Actions summary and downloadable logs.
+- Proposes changes in a Pull Request rather than committing AI repairs directly to `main`.
 
-## Important limitations
+## Important limitations and safety
 
-Project detection is not the same as a complete build or runtime test. Framework-specific build/test commands are not automatically run for every technology. The report must clearly be reviewed, and the project's proper build/tests should be added when its framework is known.
-
-The workflow does **not** deploy to Production. The production deployment workflow has been removed from this setup branch for now. Hosting-provider Git integration or auto-publishing is separate from GitHub Actions, so verify that Netlify automatic publishing is disabled before merging anything to `main`.
+- A generic workflow cannot safely build and test every framework automatically. Framework-specific tests/build commands must be added after the uploaded project is identified. Arbitrary project install/build scripts are not run blindly because they can execute untrusted code.
+- A passing syntax check or AI audit is not a guarantee that the app works or is secure.
+- This workflow does not deploy to Production. Netlify's own Git integration and auto-publishing are separate controls. Keep Netlify auto-publishing disabled while you are testing the workflow; do not merge to `main` until you are comfortable with that hosting setting.
+- The AI repair step only edits files it has read and is limited to project source/config files. Review all proposed changes before merging.
 
 ## Required GitHub Actions secrets
 
-Configure at least one provider key:
+At least one AI provider key is required:
 - `GEMINI_API_KEY`
 - `GROQ_API_KEY`
 - `OPENROUTER_API_KEY`
@@ -38,10 +37,6 @@ Optional email reporting:
 - `GMAIL_APP_PASSWORD`
 - `GMAIL_TO`
 
-Never upload API keys, passwords, production credentials, or `.env` files into the repository. Store credentials in GitHub Actions secrets.
+## Operating sequence
 
-## Safe operating sequence
-
-**Upload → Detect → Static checks → AI audit → Limited repair attempt → Recheck → Report → Human review/approval → (later, separately configured) manual deployment.**
-
-A passing AI audit is not proof that a project is secure or defect-free. Review the evidence and run project-specific tests before approval.
+**Upload → Detect project type → Static checks → AI audit → Limited repair attempt → Recheck → Detailed report → Human approval → (later, separately configured) Production deployment.**
