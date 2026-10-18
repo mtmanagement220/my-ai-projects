@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ছোট ডেমো টাস্ক লিস্ট অ্যাপ">
+  <title>ডেমো টাস্ক লিস্ট</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <p class="eyebrow">DEMO PROJECT</p>
+      <h1>আমার কাজের তালিকা</h1>
+      <p class="subtitle">কাজ যোগ করো, শেষ হলে টিক দাও।</p>
+    </header>
+    <form id="task-form">
+      <label class="sr-only" for="task-input">নতুন কাজ</label>
+      <input id="task-input" name="task" maxlength="120" placeholder="নতুন কাজ লিখো..." autocomplete="off" required>
+      <button type="submit">যোগ করো</button>
+    </form>
+    <p id="task-count" class="count" aria-live="polite">এখনো কোনো কাজ নেই</p>
+    <ul id="task-list" aria-label="কাজের তালিকা"></ul>
+    <button id="clear-completed" class="secondary" type="button">সম্পন্ন কাজ মুছো</button>
+    <footer>ডেমো অ্যাপ · ডেটা এই পেজে চলাকালীন রাখা হয়</footer>
+  </main>
+</body>
+</html>
