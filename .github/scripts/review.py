@@ -53,7 +53,7 @@ def call_ai(provider, prompt):
         key = os.getenv("GEMINI_API_KEY")
         if not key:
             return None, "missing key"
-        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"
         response = requests.post(url, params={"key": key}, json={
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.1}
