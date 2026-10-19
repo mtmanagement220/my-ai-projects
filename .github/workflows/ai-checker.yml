@@ -1,16 +1,19 @@
 name: Universal Project Audit and Repair
 
 on:
-  push:
+  pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
+# Audit runs are read-only with respect to the repository.
+# Production deployment must be controlled separately in the hosting provider.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  pull-requests: read
 
 concurrency:
-  group: project-audit-${{ github.ref }}
+  group: project-audit-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -24,7 +27,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          # For pull requests, test the proposed merge result.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -45,8 +50,11 @@ jobs:
         shell: bash
         run: |
           mkdir -p audit-reports
+          set +e
           python .github/scripts/static_check.py 2>&1 | tee audit-reports/initial-static-check.txt
-          exit ${PIPESTATUS[0]}
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: AI audit and bounded repair
         id: ai_repair
@@ -58,17 +66,13 @@ jobs:
         run: |
           set +e
           mkdir -p audit-reports
-          FINAL=1
           for ATTEMPT in 1 2 3; do
             echo "=== AI audit attempt ${ATTEMPT}/3 ==="
             python .github/scripts/review.py 2>&1 | tee "audit-reports/ai-audit-${ATTEMPT}.txt"
             AUDIT_STATUS=${PIPESTATUS[0]}
             if [ "$AUDIT_STATUS" -eq 0 ]; then
-              FINAL=0
               break
             fi
-
-            # Repair only project files. Never change workflow or secrets.
             python .github/scripts/auto_fix.py 2>&1 | tee -a "audit-reports/ai-audit-${ATTEMPT}.txt"
             FIX_STATUS=${PIPESTATUS[0]}
             if [ "$FIX_STATUS" -ne 0 ]; then
@@ -84,11 +88,14 @@ jobs:
           python .github/scripts/review.py 2>&1 | tee audit-reports/final-ai-audit.txt
           AI_STATUS=${PIPESTATUS[0]}
 
+          # Save proposed working-tree changes for human review; never commit or deploy them.
+          git diff -- projects/ > audit-reports/proposed-repair.patch
+          git status --short > audit-reports/changed-files.txt
+
           if [ "$STATIC_STATUS" -eq 0 ] && [ "$AI_STATUS" -eq 0 ]; then
             echo "final_status=passed" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
           echo "final_status=failed" >> "$GITHUB_OUTPUT"
           exit 1
 
@@ -99,8 +106,8 @@ jobs:
           AUDIT_STEP: ${{ steps.ai_repair.outcome }}
           FINAL_STATUS: ${{ steps.ai_repair.outputs.final_status }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          COMMIT_SHA: ${{ github.sha }}
-          BRANCH_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
         run: |
           python - <<'PY'
           import os
@@ -121,9 +128,9 @@ jobs:
 
           status = os.getenv("FINAL_STATUS", "unknown")
           if status == "passed":
-              verdict = "## ফলাফল: সফল\nচূড়ান্ত static checks এবং AI audit পাস করেছে।"
+              verdict = "## ফলাফল: প্রাথমিক পরীক্ষায় পাস\nনির্ধারিত checks পাস করেছে। এটি সম্পূর্ণ ত্রুটিমুক্তির নিশ্চয়তা নয়।"
           elif status == "failed":
-              verdict = "## ফলাফল: সমস্যা পাওয়া গেছে\nচূড়ান্ত পরীক্ষা পাস করেনি। নিচের লগে ত্রুটি ও AI-এর পরামর্শ দেখুন।"
+              verdict = "## ফলাফল: মার্জ করার আগে সমস্যা সমাধান দরকার\nচূড়ান্ত পরীক্ষা পাস করেনি। নিচের লগ ও patch পরীক্ষা করুন।"
           else:
               verdict = "## ফলাফল: অসম্পূর্ণ\nচূড়ান্ত ফলাফল তৈরি হয়নি; workflow error log দেখুন।"
 
@@ -136,12 +143,10 @@ jobs:
               "- প্রাথমিক static check: " + os.getenv("INITIAL_CHECK", "unknown"),
               "- Audit/repair ধাপ: " + os.getenv("AUDIT_STEP", "unknown"),
               "- GitHub Actions রান: " + os.getenv("RUN_URL", "লিংক নেই"), "",
-              "## ১. চূড়ান্ত static check",
-              read_log("final-static-check.txt"), "",
+              "## ১. চূড়ান্ত static check", read_log("final-static-check.txt"), "",
               "## ২. চূড়ান্ত AI audit — সমস্যা ও প্রস্তাবিত সমাধান",
               read_log("final-ai-audit.txt"), "",
-              "## ৩. প্রাথমিক পরীক্ষা",
-              read_log("initial-static-check.txt", 3000), "",
+              "## ৩. প্রাথমিক পরীক্ষা", read_log("initial-static-check.txt", 3000), "",
               "## ৪. AI audit ও repair প্রচেষ্টার লগ"
           ]
           attempts = sorted(reports.glob("ai-audit-*.txt"))
@@ -151,19 +156,21 @@ jobs:
           else:
               lines.append("AI audit/repair attempt-এর লগ পাওয়া যায়নি।")
           lines.extend([
-              "## কীভাবে ফলাফল ব্যবহার করবে",
-              "1. final-static-check.txt-এ syntax/code-check error দেখো।",
-              "2. final-ai-audit.txt-এ PROBLEMS, path, severity এবং suggested_fix অংশ দেখো।",
-              "3. AI পরিবর্তনের Pull Request-এর diff পরীক্ষা করে তারপর merge করার সিদ্ধান্ত নাও।",
-              "4. এই workflow নিজে Production deploy করে না; hosting provider-এর auto-publish আলাদাভাবে নিয়ন্ত্রণ করতে হয়।",
+              "## পরবর্তী করণীয়",
+              "1. final-static-check.txt-এ syntax/check error দেখুন।",
+              "2. final-ai-audit.txt-এ path, severity, problem ও suggested_fix দেখুন।",
+              "3. proposed-repair.patch এবং changed-files.txt থাকলে পরিবর্তনগুলো নিজে পর্যালোচনা করুন।",
+              "4. সব required checks পাস এবং পরিবর্তন অনুমোদিত না হওয়া পর্যন্ত PR merge করবেন না।",
+              "5. Production deploy এই workflow করে না; Netlify-তে production branch/auto-publish আলাদাভাবে সেট করতে হবে.",
               "",
-              "AI audit সহায়ক পরীক্ষা; সম্পূর্ণ নিরাপত্তা বা ত্রুটিমুক্তির নিশ্চয়তা নয়।"
+              "সীমাবদ্ধতা: AI audit সহায়ক পরীক্ষা; পূর্ণ নিরাপত্তা, build success বা runtime correctness-এর নিশ্চয়তা নয়."
           ])
           report = "\n".join(lines) + "\n"
           (reports / "report.md").write_text(report, encoding="utf-8")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
               f.write(report)
           print("Readable report created: audit-reports/report.md")
+          PY
 
       - name: Upload audit reports
         if: always()
@@ -173,67 +180,3 @@ jobs:
           path: audit-reports/
           if-no-files-found: warn
           retention-days: 30
-
-      # Never push AI changes directly to main. Create a reviewable PR instead.
-      # If tests still fail, the PR is marked for manual review; it is not deployed here.
-      - name: Create repair pull request
-        if: always() && steps.ai_repair.outcome != 'skipped' && github.ref == 'refs/heads/main'
-        uses: peter-evans/create-pull-request@v7
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ai-repair/run-${{ github.run_id }}
-          delete-branch: true
-          base: main
-          title: "AI project repair proposal (run ${{ github.run_number }})"
-          commit-message: "Propose AI-assisted project repairs"
-          body: |
-            ## Automated project audit
-
-            This pull request contains any proposed changes made by the repair workflow.
-
-            - Deterministic checks and AI audit are run by GitHub Actions.
-            - Review the workflow result and downloadable audit-report artifact before merging.
-            - Do not merge unless the required checks pass and you have reviewed the diff.
-            - This workflow does not deploy. Hosting providers may deploy after a reviewed merge to `main`.
-
-            Audit run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          add-paths: |
-            .
-            :(exclude).github/**
-            :(exclude)audit-reports/**
-            :(exclude)README.md
-
-      - name: Email result (optional)
-        if: always()
-        env:
-          GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          GMAIL_TO: ${{ secrets.GMAIL_TO }}
-          JOB_STATUS: ${{ job.status }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          python - <<'PY'
-          import os, smtplib
-          from email.message import EmailMessage
-          username = os.environ.get("GMAIL_USERNAME", "")
-          password = os.environ.get("GMAIL_APP_PASSWORD", "")
-          recipient = os.environ.get("GMAIL_TO", "")
-          if not all((username, password, recipient)):
-              print("Email reporting skipped: optional Gmail secrets are not all configured.")
-              raise SystemExit(0)
-          status = os.environ.get("JOB_STATUS", "unknown").upper()
-          msg = EmailMessage()
-          msg["Subject"] = f"Project audit: {status}"
-          msg["From"] = username
-          msg["To"] = recipient
-          msg.set_content(
-              f"Project audit workflow status: {status}\n"
-              f"Review run and audit artifact: {os.environ['RUN_URL']}\n"
-              "A passing audit is not a guarantee of defect-free software. "
-              "Review changes before merging or deploying."
-          )
-          with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
-              server.starttls()
-              server.login(username, password)
-              server.send_message(msg)
-          PY
